@@ -25,7 +25,7 @@ with tempfile.TemporaryDirectory() as t:
     gui.update()
     assert gui.mask.getpixel((600,350)) == 255
     gui.save('draft')
-    assert (folder/'firemask_output/masks/sample_rgb.png').exists()
+    assert (folder/'segment_studio_output/masks/sample_rgb.png').exists()
     gui.mask=Image.new('L',image.size,0)
     gui.open_index(0)
     assert gui.mask.getpixel((600,350)) == 255
