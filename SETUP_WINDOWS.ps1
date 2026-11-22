@@ -24,7 +24,6 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$parent = Split-Path -Parent $root
 Set-Location $root
 
 function Assert-Success([string]$step) {
@@ -84,9 +83,8 @@ function Env-Python([string]$envName) {
     if (-not $path -or -not (Test-Path -LiteralPath $path[0])) { throw "Could not locate Python for $envName." }
     return $path[0]
 }
-function Git-Repo([string]$kind, [string]$oldFolder) {
+function Git-Repo([string]$kind) {
     $newFolder = Join-Path $root "external\$kind"
-    if (Test-Path (Join-Path $oldFolder '.git')) { return $oldFolder }
     if (Test-Path $newFolder) {
         if (-not (Test-Path (Join-Path $newFolder '.git'))) {
             throw "Existing directory $newFolder is not a Git repository. Move it manually, then retry."
@@ -148,9 +146,8 @@ Run-InEnv $GuiEnv @('python','-m','pip','install','--upgrade','pip') 'Upgrade GU
 Run-InEnv $GuiEnv @('python','-m','pip','install','-r',(Join-Path $root 'requirements-gui.txt')) 'Install GUI requirements'
 
 $sam2Reuse = $ExistingSam2Models
-if (-not $sam2Reuse) {
-    $legacy = Join-Path $parent 'fire_annotation_poc\models\sam2.1'
-    if (Test-Path -LiteralPath $legacy) { $sam2Reuse = $legacy }
+if ($sam2Reuse -and -not (Test-Path -LiteralPath $sam2Reuse -PathType Container)) {
+    throw "-ExistingSam2Models points to a missing folder: $sam2Reuse"
 }
 $sam2Folder = Join-Path $root 'models\sam2.1'
 New-Item -ItemType Directory -Force -Path $sam2Folder | Out-Null
@@ -159,7 +156,7 @@ if (-not $GuiOnly) {
     Write-Host 'Installing GUI model backend: official SAM2.1' -ForegroundColor Cyan
     Install-Torch $GuiEnv '2.9.1' '0.24.1' $selectedBackend
     Run-InEnv $GuiEnv @('python','-m','pip','install','--upgrade','wheel','setuptools') 'Install SAM2 build tools'
-    $sam2Source = Git-Repo 'sam2' (Join-Path $parent 'sam2_source')
+    $sam2Source = Git-Repo 'sam2'
     $env:SAM2_BUILD_CUDA = '0'
     try { Run-InEnv $GuiEnv @('python','-m','pip','install','--no-build-isolation','-e',$sam2Source) 'Install official SAM2' }
     finally { Remove-Item Env:SAM2_BUILD_CUDA -ErrorAction SilentlyContinue }
@@ -175,10 +172,7 @@ if (-not $GuiOnly) {
 
 $checkpoint3 = $ExistingSam3Checkpoint
 if (-not $checkpoint3) {
-    $checkpoint3 = Existing-Checkpoint @(
-        (Join-Path $root 'models\sam3\sam3.pt'),
-        (Join-Path $parent 'FireMask_v2_Workspace\models\sam3\sam3.pt')
-    )
+    $checkpoint3 = Existing-Checkpoint @((Join-Path $root 'models\sam3\sam3.pt'))
 }
 $sam3Python = $null
 if ($WithSAM3) {
@@ -187,7 +181,7 @@ if ($WithSAM3) {
     Run-InEnv $SAM3Env @('python','-m','pip','install','--upgrade','pip','wheel','setuptools==80.9.0') 'SAM3 build tools'
     Install-Torch $SAM3Env '2.10.0' '0.25.0' $selectedBackend
     Test-Torch $SAM3Env $selectedBackend
-    $sam3Source = Git-Repo 'sam3' (Join-Path $parent 'sam3_source')
+    $sam3Source = Git-Repo 'sam3'
     Run-InEnv $SAM3Env @('python','-m','pip','install','-e',$sam3Source) 'Install Meta SAM3'
     # SAM3 currently imports these modules even for image inference.  Installing
     # them explicitly prevents missing-module errors found in native Windows setup.
