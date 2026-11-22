@@ -1,300 +1,271 @@
 # Segment Studio
 
-**Local, human-in-the-loop image segmentation editor** with Meta SAM2.1
-(click prompts) and optional SAM3 (text prompts). The current annotation preset
-is **visible flames in RGB fire photographs**. This is an independent research
-prototype, not an official Meta, Hugging Face, or AnyLabeling product.
+**Local image annotation and AI-assisted segmentation with SAM2.1 and optional SAM3.**
 
-The application imports existing single-channel binary masks, creates a
-separate model-candidate preview, supports manual corrections and exports
-reusable binary PNG masks. IR photographs can be paired for **viewing only**;
-RGB/IR registration or IR segmentation is **not** implemented.
+Segment Studio is a Windows desktop application for manually editing binary masks and previewing AI-generated segmentation candidates. The current annotation target is **flames directly visible in RGB wildfire photographs**. Smoke, vegetation and flames fully hidden by smoke are background.
 
-## Features
+**Current capabilities:** SAM2.1 positive/negative click prompts; optional SAM3 text prompts; brush and eraser; polygon edits; contour-vertex adjustment; candidate preview/merge; draft and approved masks; optional paired infrared image preview. **RGB–IR registration and IR segmentation are not supported.**
 
-- Load a folder of RGB photographs; reopen existing masks automatically.
-- SAM2.1 Tiny / Small / Base+ / Large: positive and negative click prompts.
-- Optional original SAM3: text prompts such as `flames` (gated checkpoint).
-- Candidate preview before applying: Replace, Add, Subtract or Intersect.
-- Manual brush and eraser, polygon add/erase, simplified contour-vertex edits,
-  undo, pan and zoom, transparent colour overlay and a boundary outline.
-- Draft/approved status, mask PNG, overlay JPEG, metadata JSON and CSV manifest.
-- Efficient viewport rendering and SAM2 image-embedding reuse on repeated clicks.
-- Optional paired IR view with explicit `image_pairs.csv`, not an alignment tool.
+This is an independent research prototype, not an official Meta or Hugging Face product. No research images, pretrained checkpoints or authentication tokens are included.
 
-**Annotation policy:** foreground = directly visible flames, background = smoke,
-vegetation, and completely smoke-occluded flames. Exported masks are 0/255 PNGs.
+## Getting started
 
-## Quick start — Windows 10/11
+### 1. Prepare Windows and Conda
 
-**Prerequisites:** [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or
-Anaconda, internet connection, enough free disk space for PyTorch and model
-checkpoints, and preferably an NVIDIA CUDA GPU. Setup requires PowerShell and
-Windows `curl.exe`. SAM3 requires additional gated-model approval. SAM2 runs slowly on CPU. Setup now checks GPU, NVIDIA driver, VRAM, system RAM and disk before selecting official CPU, CUDA 12.6 or CUDA 12.8 PyTorch wheels.
+You need:
 
-Download this repository with **Code → Download ZIP**, extract it, then open a
-**Conda-enabled PowerShell** in the extracted `segment-studio` folder.
+- **Windows 10/11 (64-bit)** and an internet connection.
+- **[Miniconda](https://www.anaconda.com/download/success)** or **[Anaconda](https://www.anaconda.com/download)**. Install the Windows distribution using its normal installer. You do not need to install Python separately; Segment Studio creates Python 3.12 Conda environments.
+- A **Conda-enabled PowerShell** session. Open the Miniconda/Anaconda PowerShell Prompt from the Start menu, or initialize PowerShell using the [official Conda guide](https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html).
+- Sufficient storage for packages and model checkpoints; an NVIDIA GPU is recommended for AI inference. The setup checks hardware and supports slower CPU-only SAM2.1 operation.
 
-### Standard installation: editor + SAM2.1
+Check Conda in the terminal:
 
-```powershell
+~~~powershell
+conda --version
+~~~
+
+You do **not** need Git installed beforehand if you download the repository as a ZIP. Setup installs it into the GUI environment.
+
+### 2. Download the application
+
+**Simplest method:**
+
+1. Open the [Segment Studio GitHub repository](https://github.com/nebverse/segment-studio). Sign in to GitHub if repository access is restricted.
+2. Select **Code → Download ZIP**.
+3. Extract it to a normal writable folder, e.g. **C:\Projects\segment-studio**. Avoid protected directories; a non-synced local disk is preferable for large downloads.
+4. In your Conda-enabled PowerShell, navigate into the actual extracted directory:
+
+~~~powershell
+cd "C:\Projects\segment-studio"
+~~~
+
+Make sure this folder contains **SETUP_WINDOWS.ps1**, **segment_studio.py**, and **README.md**. Adjust the example path if your extracted ZIP directory has a different name.
+
+**Alternative for Git users:**
+
+~~~powershell
+cd C:\Projects
+git clone https://github.com/nebverse/segment-studio.git
+cd segment-studio
+~~~
+
+### 3. Choose your installation
+
+There are **two separate Conda environments**, with different PyTorch dependencies.
+
+| Environment | What it contains | When installed |
+| --- | --- | --- |
+| **segment_studio** | Python 3.12, application GUI, SAM2.1 and PyTorch **2.9.1** | Always |
+| **segment_studio_sam3** | Python 3.12, SAM3, PyTorch **2.10.0**, Triton and supporting libraries | Only with the SAM3 option |
+
+**You always launch the GUI from segment_studio.** When you choose SAM3, the application starts its worker using segment_studio_sam3 automatically. Do not merge these environments.
+
+#### Option A — Standard: GUI + SAM2.1
+
+In the project directory, run **one command**:
+
+~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1
-```
+~~~
 
-The single script creates Conda environment `segment_studio`, installs Git,
-**PyTorch 2.9.1** with a detected CPU / CUDA 12.6 / CUDA 12.8 build, the official SAM2 Python package, GUI dependencies,
-and downloads **SAM2.1 Tiny + Small** checkpoints. It runs basic tests and
-writes untracked local settings to `.local/config.json`.
+The installer creates the GUI environment, inspects your hardware, selects a supported PyTorch build, installs the official SAM2.1 package and downloads **SAM2.1 Tiny and Small** checkpoints.
 
-To download all four SAM2.1 sizes:
+To install **all four** SAM2.1 checkpoints (Tiny, Small, Base+ and Large), run this **instead**:
 
-```powershell
+~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -Models all
-```
+~~~
 
-### Automatic hardware detection and safe installation
+The commands above are alternatives. Running both is unnecessary.
 
-The installer calls `hardware_probe.py` before downloading PyTorch. It checks
-64-bit Windows, Python 3.12, the primary NVIDIA GPU (GPU 0), driver version,
-compute capability, GPU VRAM, physical system RAM and free disk space.
-The detected profile is saved in `.local/hardware.json`, ignored by Git.
+#### Option B — Complete: GUI + SAM2.1 + SAM3
 
-| Detected system | Automatic choice |
-| --- | --- |
-| Compatible NVIDIA GPU and Windows driver >=572.61 | CUDA 12.8 |
-| Compatible older NVIDIA GPU/driver >=561.17 | CUDA 12.6 |
-| No suitable NVIDIA CUDA installation | CPU-only PyTorch |
+SAM3's model weights are **gated** on Hugging Face. Before running setup:
 
-These are conservative compatibility presets rather than guarantees that every
-GPU will support every model. Windows driver versions are checked numerically,
-and a real PyTorch GPU tensor calculation is performed after installation.
-`nvidia-smi` reports *driver CUDA capability*, not the local CUDA Toolkit.
-PyTorch wheels include their own CUDA runtime. See [PyTorch's official version
-list](https://pytorch.org/get-started/previous-versions/) and
-[NVIDIA's CUDA toolkit release notes](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html).
+1. Create or sign in to [Hugging Face](https://huggingface.co/join).
+2. Visit the official [Meta SAM3 checkpoint page](https://huggingface.co/facebook/sam3).
+3. Read and accept the terms; request access if necessary and wait for approval.
+4. Prepare a **read-access token**, if needed, using [Hugging Face token settings](https://huggingface.co/settings/tokens). Never paste a token into the repository or commit it.
 
-For CPU-only SAM2, use:
+Then run:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -TorchBackend cpu
-```
-
-Advanced overrides are `-TorchBackend cu126` and `-TorchBackend cu128`,
-but unsupported GPU/driver combinations are blocked. On native Windows,
-SAM3 requires the tested CUDA 12.8 + Triton 3.6 combination; on other setups
-the installer explains why and stops before installing the SAM3 environment.
-SAM3 may run out of memory on GPUs with 8 GiB of VRAM.
-
-Matching existing PyTorch installations are reused. A **different** existing
-wheel is not silently overwritten: the installer asks you to opt in with
-`-ReinstallTorch`, which changes only the selected Conda environment(s).
-It does not install or upgrade NVIDIA drivers. Use a different environment
-name to preserve an older setup.
-
-Hardware-only check (does not install anything):
-
-```powershell
-python .\hardware_probe.py
-```
-
-### Complete installation: editor + SAM2.1 + SAM3
-
-**Before running**, request and receive access to the original checkpoint:
-
-1. Visit [facebook/sam3 on Hugging Face](https://huggingface.co/facebook/sam3).
-2. Sign in, accept Meta's license/usage conditions, and request access.
-3. Wait until that account is approved. The installer **cannot grant access**.
-4. Have a Hugging Face **read** token available from
-   [Hugging Face Access Tokens](https://huggingface.co/settings/tokens).
-   Never paste the token into a repository file or commit it.
-
-Then run **one command**:
-
-```powershell
+~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -WithSAM3 -Models all
-```
+~~~
 
-In addition to SAM2.1, this creates `segment_studio_sam3` with PyTorch
-**2.10.0+cu128**, a separate clone of official SAM3, and native-Windows fixes
-for the missing packages encountered during development (`numpy==1.26.4`,
-`setuptools==80.9.0`, `einops==0.8.2`, `triton-windows==3.6.0.post26`,
-`pycocotools`, `psutil`). It checks Hugging Face login and, if needed, opens
-an interactive terminal login; it then downloads `sam3.pt` and `config.json`.
+This installs **both environments**, the four SAM2.1 checkpoints, and the original SAM3 package. It checks Hugging Face authentication, may prompt for interactive terminal login, and downloads the official **sam3.pt** and **config.json**.
 
-**Important:** this setup targets the original SAM3 checkpoint rather than
-SAM3.1. CUDA/SAM3 inference on Windows and ~8 GB VRAM cannot be guaranteed by
-successful imports alone. Native Windows is tested only to the extent reported
-in the project tests; upstream SAM2 recommends WSL2 for Windows users.
+For SAM3 plus only Tiny and Small SAM2.1 checkpoints, omit the all-model flag:
 
-If SAM3 approval is still pending, prepare its environment without downloading
-weights:
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -WithSAM3
+~~~
 
-```powershell
+**If SAM3 access is pending**, install its environment now without downloading the gated checkpoint:
+
+~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -WithSAM3 -SkipSAM3Download
-```
+~~~
 
-After approval, run the same command **without** `-SkipSAM3Download`.
-A setup failure can be retried safely; existing environments, Git clones and
-checkpoints are reused, not deleted.
+After approval, rerun the normal complete command. Existing downloads are reused where possible.
 
-For a **GUI-only** test without downloading CUDA/SAM weights:
+**SAM3 hardware warning:** This native-Windows installation requires the supported NVIDIA GPU/CUDA 12.8 configuration. Import checks do not guarantee successful inference, and GPUs with around 8 GiB VRAM may run out of memory. This application targets original SAM3, not SAM3.1.
 
-```powershell
+#### Option C — GUI without AI models
+
+For manual annotation and the non-AI colour demonstration:
+
+~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -GuiOnly
-```
+~~~
 
-The GUI-only setup supports manual corrections and `Colour demo (not AI)`.
+This does **not** install usable SAM2.1 or SAM3 inference.
 
-### Launch / check
+### 4. Launch the application
 
-```powershell
+After setup finishes, from the **same project directory** run:
+
+~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\LAUNCH_WINDOWS.ps1
-```
+~~~
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\RUN_CHECKS_WINDOWS.ps1
-```
+Or use Python directly with the GUI environment:
 
-You can also run directly after activating the environment:
-
-```powershell
+~~~powershell
 conda activate segment_studio
 python .\segment_studio.py
-```
+~~~
 
-### Reuse already installed environments and model weights
+Do **not** activate segment_studio_sam3 to run the GUI; it is a separate inference environment.
 
-If you are migrating from the earlier FireMask workspace **in the same parent
-folder**, you can try the new GUI immediately with your existing installation
-and checkpoints, before running the installer:
+Run diagnostics and local checks using:
 
-```powershell
-conda activate firemask
-python .\segment_studio.py
-```
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\RUN_CHECKS_WINDOWS.ps1
+~~~
 
-The Python backend recognizes the older sibling model folders and the existing
-`firemask_sam3` environment. This shortcut assumes those environments and
-checkpoint folders are still available and working.
+## How to annotate
 
-Do **not** delete existing `firemask` or `firemask_sam3` environments or move
-existing labels. In the same terminal, you can reuse the existing Conda names:
+1. Click **Open RGB folder** and choose a folder with the photographs you want to annotate.
+2. Select a SAM2.1 model (start with **SAM2.1 Small**). Choose **SAM positive** to click visible flame pixels and **SAM negative** to identify background/smoke.
+3. Click **Run candidate**. The green prediction is only a **preview**: it does not alter your existing mask until applied.
+4. Select **Apply as** and click **Apply candidate**:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -GuiEnv firemask -SAM3Env firemask_sam3 -WithSAM3 -Models all
-```
+   | Mode | Effect |
+   | --- | --- |
+   | **Replace** | Replace the current mask with the prediction |
+   | **Add (union)** | Add predicted pixels to the current mask |
+   | **Subtract** | Remove predicted pixels from the current mask |
+   | **Intersect** | Retain only pixels common to both masks |
 
-If the repository is alongside the older `fire_annotation_poc` and
-`FireMask_v2_Workspace`, the application can detect those local checkpoint
-folders. For checkpoints stored elsewhere, use parameters:
+5. Correct the result with **Paint fire**, **Erase**, **Polygon add/erase**, or **Edit boundary**. Shift-click near a boundary to insert a new vertex. For narrow flame tips, a zoomed-in brush can preserve more detail than simplified polygon editing.
+6. Select **Save draft** while revising or **Approve + save** after reviewing the result.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 `
-  -ExistingSam2Models 'D:\my-checkpoints\sam2.1' `
-  -ExistingSam3Checkpoint 'D:\my-checkpoints\sam3.pt' `
-  -WithSAM3
-```
+For SAM3, select **SAM3 text**, enter a prompt such as **flames**, and choose **Run candidate**. SAM3 runs in its separate environment; each request may be slower because the model is loaded by a worker process.
 
-The installer doesn't copy large model files when it can reuse paths; it records
-paths in `.local/config.json` (ignored by Git). Environment overrides
-`SEGMENT_STUDIO_SAM2_MODELS`, `SEGMENT_STUDIO_SAM3_CKPT`, and
-`SEGMENT_STUDIO_SAM3_PYTHON` are supported.
+**Mouse/keyboard:** wheel = zoom; right-drag = pan; Ctrl+Z = undo; Ctrl+S = save draft; Esc = cancel an unfinished shape. See [Annotation guide](ANNOTATION_GUIDE.md) for additional controls.
 
-## Annotation workflow
+## Where files are saved
 
-1. Open an RGB folder; previously saved masks are loaded.
-2. Select SAM2.1, use **SAM positive** and **SAM negative**, and **Run candidate**.
-   For SAM3 text, enter `flames` then run a candidate.
-3. View the green preview. The underlying approved mask does **not** change
-   until **Apply candidate** is clicked.
-4. Choose **Replace** for a new mask, **Add (union)** for missing flames,
-   **Subtract** for removing predictions, or **Intersect** for overlapping pixels.
-5. Paint or erase, draw a polygon, or use **Edit boundary** to select a connected
-   region and adjust yellow vertices. Shift-click adds a vertex; Commit applies.
-   Simplified boundary edits can smooth flame tips, so use the brush for detail.
-6. **Save draft** or **Approve + save**. The program does not modify your raw RGBs.
+Raw RGB images are not modified. Saving annotations creates a **segment_studio_output** directory **inside the selected RGB image folder**, separate from the repository's code:
 
-For model prompts on a high-resolution image, the first request may be slower
-because the image embedding/model must load. Subsequent SAM2.1 requests on the
-same image/model reuse the embedding. SAM3 uses a separate process per request
-and can be much slower.
+~~~text
+my_rgb_photos/
+├── photo_001.jpg
+├── photo_002.jpg
+├── input_masks/                           # optional existing binary masks
+│   └── photo_001.png
+├── image_pairs.csv                        # optional RGB–IR pairing
+└── segment_studio_output/
+    ├── masks/
+    │   └── photo_001.png                  # grayscale mask, 0 or 255
+    ├── overlays/
+    │   └── photo_001_overlay.jpg          # visual preview only
+    ├── metadata/
+    │   └── photo_001.json
+    └── annotation_manifest.csv
+~~~
 
-### Output layout
+Existing masks are reopened from the saved output folder first. The application also accepts correctly sized single-channel masks under **input_masks**, **masks**, or named using the matching image stem plus **_mask.png**. For backward compatibility only, it can read masks from an older **firemask_output/masks** directory; new saves always use **segment_studio_output**.
 
-For compatibility with already annotated datasets, the default output folder is
-still named `firemask_output` (you may rename this in a future migration):
+**Never use coloured overlay JPEGs as training masks.** Model predictions require manual review.
 
-```text
-RGB_FOLDER/
-  image_001_rgb.jpg
-  image_002_rgb.jpg
-  input_masks/                        # optional original masks
-  image_pairs.csv                     # optional RGB–IR mapping
-  firemask_output/
-    masks/image_001_rgb.png          # binary 0/255 mask
-    overlays/image_001_rgb_overlay.jpg
-    metadata/image_001_rgb.json
-    annotation_manifest.csv
-```
+## Optional infrared preview
 
-The application prioritizes previously saved masks in `firemask_output/masks/`
-over `input_masks/`, `masks/` or `<stem>_mask.png`. Do not put RGB overlays in
-mask input folders. Labels must be single-channel and match RGB dimensions.
+Click **IR folder (optional)** to select a folder of matching IR photographs. For explicit matching, place an **image_pairs.csv** file in the RGB folder:
 
-### Optional paired IR images
-
-Choose **IR folder (optional)** and place `image_pairs.csv` in the RGB directory:
-
-```csv
+~~~csv
 rgb_file,ir_file
-image_001_rgb.jpg,image_001_ir.jpg
-```
+photo_001.jpg,photo_001_ir.jpg
+~~~
 
-Only matched images are displayed in IR preview; there is no automatic
-registration and no IR annotation propagation. Unpaired RGB images are fine.
+Choose the IR directory in the GUI if it is separate from the RGB directory. The app can also attempt simple filename matching, but **matching filenames do not establish registration**. The IR view is inspection-only; labels and exports remain in RGB coordinates.
 
-## Repository and maintenance
+See [image_pairs_example.csv](image_pairs_example.csv).
 
-- `segment_studio.py`: GUI and annotation workflow.
-- `mask_utils.py`: binary masks, contours, saving, manifests and paired image list.
-- `sam_backends.py`: SAM2 local inference and SAM3 subprocess bridge.
-- `sam3_worker.py`: isolated SAM3 text inference.
-- `SETUP_WINDOWS.ps1`: single installation/reinstallation entry point.
-- `hardware_probe.py`: standalone hardware analysis and safe PyTorch backend selection.
-- `LAUNCH_WINDOWS.ps1`, `RUN_CHECKS_WINDOWS.ps1`: run and diagnose.
-- `tests/`: fast core tests and optional GUI smoke test.
-- `docs/`: troubleshooting and publishing instructions.
-- `.local/`, `external/`, `models/`: local/generated only, ignored by Git.
+## Automatic hardware detection
 
-After modifying Python code, you **do not** need to reinstall models; launch the
-app again. To publish updates: `git add`, `git commit`, `git push` (see
-[GitHub publishing](docs/GITHUB_PUBLISHING.md)). Use a feature branch or pull
-request for larger changes; other users can run `git pull` to update their
-local checkout without overwriting their untracked data.
+The installer checks Windows/Python architecture, primary NVIDIA GPU and driver, compute capability, GPU VRAM, system RAM and free disk space before selecting a PyTorch wheel.
 
-## Testing and limits
+| Detected configuration | Behavior |
+| --- | --- |
+| Compatible NVIDIA GPU and sufficiently recent driver | CUDA 12.8 PyTorch |
+| Supported older NVIDIA GPU/driver | CUDA 12.6 PyTorch |
+| No compatible NVIDIA CUDA GPU | CPU-only SAM2.1 |
+| SAM3 requested without the tested CUDA 12.8 setup | Installer reports the incompatibility |
 
-Fast checks: `python -m unittest discover -s tests -p test_core.py -v` and
-`python -m unittest discover -s tests -p test_hardware.py -v`.
-Optional desktop smoke test (with Tk display):
-`python tests/test_gui_smoke.py`.
+Driver and GPU checks use conservative compatibility presets. After installation, a real PyTorch tensor operation verifies the selected backend. **The CUDA version in nvidia-smi reflects driver compatibility, not necessarily a separately installed CUDA Toolkit.** PyTorch wheels include the runtime libraries they need in most cases. The installer does not install GPU drivers.
 
-Tested here: Python syntax, five core mask tests, GUI smoke test with a synthetic
-image. **Not tested in this package build**: clean Windows installation and
-checkpoint inference on a fresh computer. Prior SAM2.1 and SAM3 execution
-reports came from the developer machine; SAM3 may run out of memory on some
-8 GB GPUs. Please report exact errors rather than assuming universal support.
+To run just the hardware check, from a Python-enabled environment:
 
-## Acknowledgments / licenses
+~~~powershell
+python .\hardware_probe.py
+~~~
 
-No license has been selected yet for this editor. Review
-[licensing considerations](docs/LICENSING.md) with the relevant code owner(s)
-before public release. Upstream
-[SAM2](https://github.com/facebookresearch/sam2) and
-[SAM3](https://github.com/facebookresearch/sam3) are installed separately at
-setup. Their source-code licenses and model-weight terms apply independently.
-No Meta code or pretrained checkpoints are bundled in this repository.
+**Advanced options** (usually unnecessary for first-time installation):
 
-If your images or annotations belong to a research laboratory, obtain any
-required permission before sharing them publicly. The .gitignore avoids common
-file types but is not a substitute for checking `git status` before pushing.
+~~~powershell
+# Force a CPU-only SAM2.1 installation
+powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -TorchBackend cpu
+
+# Allow an intentional replacement of an incompatible existing PyTorch wheel
+powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -ReinstallTorch
+~~~
+
+Other parameters include **-TorchBackend cu126**, **-TorchBackend cu128**, **-GuiEnv**, **-SAM3Env**, **-ExistingSam2Models**, and **-ExistingSam3Checkpoint**. Mismatching installed PyTorch packages are not silently replaced. Hardware profiles and local model locations are stored under **.local/**, which is excluded from Git.
+
+### Installed directory layout
+
+~~~text
+segment-studio/
+├── segment_studio.py                # GUI
+├── SETUP_WINDOWS.ps1                # installer
+├── LAUNCH_WINDOWS.ps1               # launcher
+├── models/
+│   ├── sam2.1/                      # downloaded SAM2.1 model files
+│   └── sam3/                        # optional SAM3 checkpoint
+├── external/
+│   ├── sam2/                        # official SAM2 source clone
+│   └── sam3/                        # optional official SAM3 source clone
+└── .local/
+    ├── config.json                  # generated model/environment paths
+    └── hardware.json                # local hardware-selection report
+~~~
+
+**Conda environments are installed within your Conda installation**, not inside this repository folder. The model directories, cloned external code, and generated local config are not committed to Git.
+
+## Further help and project information
+
+| Document or file | Purpose |
+| --- | --- |
+| [Troubleshooting](TROUBLESHOOTING.md) | Conda, CUDA, dependencies, model downloads and mask issues |
+| [Annotation guide](ANNOTATION_GUIDE.md) | Prompting and manual-editing controls |
+| [GitHub publishing guide](GITHUB_PUBLISHING.md) | Maintainer workflow for commits and updates |
+| [Licensing considerations](LICENSING.md) | Publication and redistribution considerations |
+| [models/README.md](models/README.md) | Local model layout |
+| [tests/](tests/) | Regression and hardware-selection tests |
+
+**Tested:** Python syntax, core mask tests, hardware-selection tests and a GUI smoke test using a synthetic image. **Not established:** reliable fresh installation on every Windows/GPU combination, or universal SAM3 inference on low-memory hardware.
+
+No open-source license has yet been chosen for Segment Studio. Do not assume this repository is licensed for public redistribution. Consult the relevant rights holder(s) and [Licensing considerations](LICENSING.md) before publishing it. Official [SAM2](https://github.com/facebookresearch/sam2) and [SAM3](https://github.com/facebookresearch/sam3) source/checkpoints are installed separately and have their own terms.
