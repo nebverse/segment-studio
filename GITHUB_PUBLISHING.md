@@ -26,7 +26,6 @@ environment, so if it is not in your shell yet use:
 
 ```powershell
 conda activate segment_studio
-# Or: conda activate firemask  (if you reused that environment)
 git --version
 ```
 
@@ -39,7 +38,7 @@ git status --short
 ```
 
 **Review every staged filename**. No `sam3.pt`, `.pt`, `.pth`, real `.jpg` / `.png`,
-research data, `firemask_output`, `.local/config.json`, access tokens or any
+research data, `segment_studio_output`, `.local/config.json`, access tokens or any
 private files should appear. If they do, stop and remove them from staging and
 extend `.gitignore` **before** committing.
 
