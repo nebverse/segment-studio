@@ -84,7 +84,9 @@ function Env-Python([string]$envName) {
     return $path[0]
 }
 function Git-Repo([string]$kind) {
-    $newFolder = Join-Path $root "external\$kind"
+    $externalFolder = Join-Path $root 'external'
+    New-Item -ItemType Directory -Force -Path $externalFolder | Out-Null
+    $newFolder = Join-Path $externalFolder $kind
     if (Test-Path $newFolder) {
         if (-not (Test-Path (Join-Path $newFolder '.git'))) {
             throw "Existing directory $newFolder is not a Git repository. Move it manually, then retry."
@@ -171,6 +173,9 @@ if (-not $GuiOnly) {
 }
 
 $checkpoint3 = $ExistingSam3Checkpoint
+if ($checkpoint3 -and -not (Test-Path -LiteralPath $checkpoint3 -PathType Leaf)) {
+    throw "-ExistingSam3Checkpoint points to a missing file: $checkpoint3"
+}
 if (-not $checkpoint3) {
     $checkpoint3 = Existing-Checkpoint @((Join-Path $root 'models\sam3\sam3.pt'))
 }
@@ -178,6 +183,7 @@ $sam3Python = $null
 if ($WithSAM3) {
     Write-Host 'Installing optional SAM3 in a separate Conda environment' -ForegroundColor Cyan
     Create-Env $SAM3Env
+    Run-InEnv $SAM3Env @('python','-c','import sys; assert sys.version_info[:2] == (3,12) and sys.maxsize > 2**32, "Python 3.12 x64 required"') 'Verify SAM3 Python 3.12 x64'
     Run-InEnv $SAM3Env @('python','-m','pip','install','--upgrade','pip','wheel','setuptools==80.9.0') 'SAM3 build tools'
     Install-Torch $SAM3Env '2.10.0' '0.25.0' $selectedBackend
     Test-Torch $SAM3Env $selectedBackend
