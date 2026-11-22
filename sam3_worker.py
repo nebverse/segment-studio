@@ -24,7 +24,7 @@ def infer(image_path: Path, output_path: Path, checkpoint: Path,
     from sam3.model.sam3_image_processor import Sam3Processor
 
     if not torch.cuda.is_available():
-        raise RuntimeError('CUDA is not available in firemask_sam3 environment.')
+        raise RuntimeError('CUDA is not available in the SAM3 environment. Check SEGMENT_STUDIO_SAM3_PYTHON.')
     if not checkpoint.is_file():
         raise FileNotFoundError(checkpoint)
     with Image.open(image_path) as img:
