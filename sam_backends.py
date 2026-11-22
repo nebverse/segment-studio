@@ -38,10 +38,8 @@ def _sam2_locations() -> list[Path]:
     config = _local_config()
     candidates = [
         os.environ.get('SEGMENT_STUDIO_SAM2_MODELS'),
-        os.environ.get('FIREMASK_SAM2_MODELS'),
         config.get('sam2_models'),
         ROOT / 'models' / 'sam2.1',
-        ROOT.parent / 'fire_annotation_poc' / 'models' / 'sam2.1',
     ]
     return [Path(path) for path in candidates if path]
 
@@ -67,10 +65,8 @@ def sam3_checkpoint() -> Path:
     config = _local_config()
     candidates = [
         os.environ.get('SEGMENT_STUDIO_SAM3_CKPT'),
-        os.environ.get('FIREMASK_SAM3_CKPT'),
         config.get('sam3_checkpoint'),
         ROOT / 'models' / 'sam3' / 'sam3.pt',
-        ROOT.parent / 'FireMask_v2_Workspace' / 'models' / 'sam3' / 'sam3.pt',
     ]
     for path in candidates:
         if path and Path(path).is_file():
@@ -82,18 +78,15 @@ def sam3_python() -> Path:
     config = _local_config()
     candidates = [
         os.environ.get('SEGMENT_STUDIO_SAM3_PYTHON'),
-        os.environ.get('FIREMASK_SAM3_PYTHON'),
         config.get('sam3_python'),
     ]
     if sys.platform == 'win32':
         candidates.extend([
             Path(sys.prefix).parent / 'segment_studio_sam3' / 'python.exe',
-            Path(sys.prefix).parent / 'firemask_sam3' / 'python.exe',
         ])
     else:
         candidates.extend([
             Path(sys.prefix).parent / 'segment_studio_sam3' / 'bin' / 'python',
-            Path(sys.prefix).parent / 'firemask_sam3' / 'bin' / 'python',
         ])
     for path in candidates:
         if path and Path(path).is_file():
@@ -127,7 +120,7 @@ class Sam2Local:
         cfg, _ = SAM2_CONFIGS[variant]
         checkpoint = sam2_checkpoint(variant)
         if not checkpoint.is_file():
-            raise FileNotFoundError(f'Missing checkpoint: {checkpoint}\nCopy your existing SAM2.1 checkpoints or set FIREMASK_SAM2_MODELS.')
+            raise FileNotFoundError(f'Missing checkpoint: {checkpoint}\nRun SETUP_WINDOWS.ps1 or set SEGMENT_STUDIO_SAM2_MODELS.')
         if checkpoint.stat().st_size < 1_000_000:
             raise RuntimeError(f'Incomplete SAM2 checkpoint: {checkpoint}')
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -156,7 +149,7 @@ def sam3_predict(image_path: Path, prompt: str, threshold: float = 0.4) -> Image
     checkpoint = sam3_checkpoint()
     if not checkpoint.is_file():
         raise FileNotFoundError(f'SAM3 checkpoint not found: {checkpoint}\nRun SETUP_WINDOWS.ps1 -WithSAM3 after Hugging Face approval.')
-    with tempfile.TemporaryDirectory(prefix='firemask_sam3_') as folder:
+    with tempfile.TemporaryDirectory(prefix='segment_studio_sam3_') as folder:
         result = Path(folder) / 'mask.png'
         command = [str(python_exe), str(ROOT / 'sam3_worker.py'), '--image', str(image_path),
                    '--output', str(result), '--checkpoint', str(checkpoint),
