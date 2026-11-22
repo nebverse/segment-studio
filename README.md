@@ -187,7 +187,7 @@ my_rgb_photos/
     └── annotation_manifest.csv
 ~~~
 
-Existing masks are reopened from the saved output folder first. The application also accepts correctly sized single-channel masks under **input_masks**, **masks**, or named using the matching image stem plus **_mask.png**. For backward compatibility only, it can read masks from an older **firemask_output/masks** directory; new saves always use **segment_studio_output**.
+Existing masks are reopened from the saved output folder first. The application also accepts correctly sized single-channel masks under **input_masks**, **masks**, or named using the matching image stem plus **_mask.png**. New saves always use **segment_studio_output**. The mask loader also supports a legacy output directory for backward compatibility.
 
 **Never use coloured overlay JPEGs as training masks.** Model predictions require manual review.
 
