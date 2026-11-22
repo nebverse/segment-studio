@@ -64,8 +64,7 @@ repository. **Do not** put tokens in PowerShell scripts, config files or Git.
 
 ## SAM3 missing-module errors on Windows
 
-The Windows installer includes the missing dependencies discovered while
-bringing up the original SAM3 repository:
+The Windows installer includes the SAM3 dependencies needed by its import chain:
 
 ```text
 numpy==1.26.4
@@ -76,12 +75,11 @@ pycocotools
 psutil
 ```
 
-These packages remain isolated in `segment_studio_sam3`. In the earlier
-prototype, an unbounded NumPy upgrade caused SAM3 dependency conflicts;
+These packages remain isolated in `segment_studio_sam3`. An unbounded NumPy upgrade can cause SAM3 dependency conflicts;
 setuptools >=82 removed the legacy `pkg_resources` import; and SAM3 also
-imported `einops`, `triton` and `pycocotools` modules during startup.
+imports `einops`, `triton` and `pycocotools` modules during startup.
 
-If the packages are missing in your already-existing SAM3 environment:
+If a dependency is missing in the optional SAM3 environment:
 
 ```powershell
 conda activate segment_studio_sam3
@@ -103,9 +101,10 @@ Use a larger VRAM GPU/WSL2 Linux machine for high-throughput evaluation.
 
 ## Masks are not loading after restart
 
-Stored masks are in `<RGB_FOLDER>/firemask_output/masks/`. The app checks this
-folder first and then tries `<RGB_FOLDER>/input_masks/`, `<RGB_FOLDER>/masks/`,
-and `<RGB_STEM>_mask.png` beside the photograph. The mask must be a single-channel
+New masks are stored in `<RGB_FOLDER>/segment_studio_output/masks/`. The app checks
+this folder first and then tries `<RGB_FOLDER>/firemask_output/masks/` (legacy import),
+`<RGB_FOLDER>/input_masks/`, `<RGB_FOLDER>/masks/`, and `<RGB_STEM>_mask.png`
+beside the photograph. The mask must be a single-channel
 0/255 (or 0/1) image with the exact same dimensions. Do not provide coloured
 overlay previews as label masks.
 
