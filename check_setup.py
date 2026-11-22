@@ -24,3 +24,16 @@ try:
         print('GPU:', torch.cuda.get_device_name(0))
 except ImportError:
     pass
+
+# Optional hardware report from the Windows installer.
+from pathlib import Path
+import json
+_report = Path(__file__).resolve().parent / '.local' / 'hardware.json'
+if _report.exists():
+    try:
+        _plan = json.loads(_report.read_text(encoding='utf-8-sig'))
+        print('Selected PyTorch backend:', _plan.get('backend'))
+        for _warning in _plan.get('warnings', []):
+            print('Hardware warning:', _warning)
+    except (OSError, ValueError) as _exc:
+        print('Hardware report could not be read:', _exc)
