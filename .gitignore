@@ -34,6 +34,8 @@ IR/
 input_masks/
 masks/
 overlays/
+segment_studio_output/
+**/segment_studio_output/
 firemask_output/
 **/firemask_output/
 **/annotation_manifest.csv
