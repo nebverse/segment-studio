@@ -10,5 +10,7 @@ if (-not $GuiEnv) {
 if (-not $GuiEnv) { $GuiEnv = 'segment_studio' }
 & conda run --no-capture-output -n $GuiEnv python -m unittest discover -s tests -p 'test_core.py' -v
 if ($LASTEXITCODE -ne 0) { throw 'Mask tests failed.' }
+& conda run --no-capture-output -n $GuiEnv python -m unittest discover -s tests -p 'test_hardware.py' -v
+if ($LASTEXITCODE -ne 0) { throw 'Hardware tests failed.' }
 & conda run --no-capture-output -n $GuiEnv python .\check_setup.py
 if ($LASTEXITCODE -ne 0) { throw 'Diagnostic failed.' }
