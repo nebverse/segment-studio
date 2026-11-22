@@ -8,8 +8,8 @@ Expected directories after download:
 - `sam2.1/sam2.1_hiera_tiny.pt` (plus other requested sizes)
 - `sam3/sam3.pt` and `sam3/config.json` (SAM3 requires Hugging Face access)
 
-The setup can reuse older checkpoint folders without copying them, via a local
-`.local/config.json` file or the `-ExistingSam2Models` / `-ExistingSam3Checkpoint`
-parameters. The local settings are never committed.
+Users can supply existing checkpoint paths using `-ExistingSam2Models` and
+`-ExistingSam3Checkpoint` or the generated, untracked `.local/config.json`.
+Model downloads are skipped when the configured local files already exist.
 
 The checkpoints and upstream repositories have their own model and code terms.
