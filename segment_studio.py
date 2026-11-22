@@ -176,13 +176,14 @@ class FireAnnotator(tk.Tk):
         ttk.Label(footer, text='Wheel zoom | Right-drag pan | Red + / Blue − prompts | Esc cancel shape').pack(side='right')
 
     def _out(self):
-        return self.folder / 'firemask_output'
+        return self.folder / 'segment_studio_output'
 
     def _mask_path(self, image: Path):
         return self._out() / 'masks' / f'{image.stem}.png'
 
     def _sources(self, image: Path):
         return [self._mask_path(image),
+                self.folder / 'firemask_output' / 'masks' / f'{image.stem}.png',
                 self.folder / 'input_masks' / f'{image.stem}.png',
                 self.folder / 'masks' / f'{image.stem}.png',
                 self.folder / f'{image.stem}_mask.png']
