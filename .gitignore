@@ -1,0 +1,66 @@
+# Local environments and installed upstream source
+.local/
+external/
+.venv/
+venv/
+.conda/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Models: never commit trained weights/checkpoints
+models/*
+!models/README.md
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.engine
+*.part
+
+# Input images, annotation labels, temporary predictions, outputs
+sample_images/
+data/
+datasets/
+images/
+RGB/
+IR/
+input_masks/
+masks/
+overlays/
+firemask_output/
+**/firemask_output/
+**/annotation_manifest.csv
+*.jpg
+*.jpeg
+*.png
+*.tif
+*.tiff
+*.bmp
+*.webp
+*.las
+*.laz
+
+# Sensitive and machine-specific local settings
+.env
+.env.*
+*.token
+*.secret
+*.key
+secrets/
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# Editor and notebooks
+.vscode/
+.idea/
+.ipynb_checkpoints/

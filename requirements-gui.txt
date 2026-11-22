@@ -1,0 +1,4 @@
+# GUI + mask utilities. PyTorch/SAM code is installed by SETUP_WINDOWS.ps1.
+numpy>=1.26,<3
+Pillow>=10,<14
+opencv-python-headless>=4.10,<5
