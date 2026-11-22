@@ -2,7 +2,7 @@
 
 **Target:** directly visible RGB flames, not smoke and not fires inferred
 behind opaque smoke. Images and source masks remain unmodified; reviewed masks
-are saved separately to `firemask_output/`.
+are saved separately to `segment_studio_output/`.
 
 ## Step-by-step
 
