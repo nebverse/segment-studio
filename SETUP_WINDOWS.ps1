@@ -14,6 +14,9 @@ param(
     [switch]$WithSAM3,
     [switch]$GuiOnly,
     [switch]$SkipSAM3Download,
+    [ValidateSet('auto','cpu','cu126','cu128')]
+    [string]$TorchBackend = 'auto',
+    [switch]$ReinstallTorch,
     [string]$GuiEnv = 'segment_studio',
     [string]$SAM3Env = 'segment_studio_sam3',
     [string]$ExistingSam2Models = '',
@@ -30,6 +33,35 @@ function Assert-Success([string]$step) {
 function Run-InEnv([string]$envName, [string[]]$commandArgs, [string]$step) {
     & conda run --no-capture-output -n $envName @commandArgs
     Assert-Success $step
+}
+function Install-Torch([string]$envName, [string]$version, [string]$vision, [string]$backend) {
+    # A plain pip requirement torch==X considers both +cu126 and +cu128 satisfied.
+    # Check the exact local version to prevent silently retaining a wrong wheel.
+    $probe = 'import importlib.metadata as m, importlib.util; print(m.version("torch") if importlib.util.find_spec("torch") else "NONE")'
+    $existing = & conda run -n $envName python -c $probe
+    Assert-Success "Inspect installed PyTorch in $envName"
+    $installed = (@($existing | Where-Object { $_.Trim() } | ForEach-Object { $_.Trim() }) | Select-Object -Last 1)
+    $wanted = "$version+$backend"
+    if ($installed -eq $wanted) {
+        Write-Host "Keeping existing $envName PyTorch $wanted" -ForegroundColor Green
+        return
+    }
+    if ($installed -and $installed -ne 'NONE' -and -not $ReinstallTorch) {
+        throw "$envName has PyTorch $installed, but the detected plan wants $wanted. To change it explicitly, rerun with -ReinstallTorch; your other environments are not modified."
+    }
+    $args = @('python','-m','pip','install')
+    if ($installed -and $installed -ne 'NONE') { $args += '--force-reinstall' }
+    $args += @("torch==$version", "torchvision==$vision", '--index-url', "https://download.pytorch.org/whl/$backend")
+    Run-InEnv $envName $args "Install PyTorch $wanted"
+}
+function Test-Torch([string]$envName, [string]$backend) {
+    if ($backend -eq 'cpu') {
+        $code = 'import torch; print("Torch:",torch.__version__,"CUDA:",torch.cuda.is_available()); x=torch.ones((32,32)); assert (x*x).sum().item()==1024'
+    } else {
+        $cudaVersion = if ($backend -eq 'cu128') { '12.8' } else { '12.6' }
+        $code = "import torch; assert torch.cuda.is_available(), 'CUDA unavailable'; assert torch.version.cuda == '$cudaVersion', 'Incorrect CUDA build'; x=torch.ones((32,32),device='cuda'); assert (x*x).sum().item()==1024; print('CUDA GPU calculation OK:',torch.cuda.get_device_name(0))"
+    }
+    Run-InEnv $envName @('python','-c',$code) "Verify actual PyTorch computation in $envName"
 }
 function Env-Exists([string]$envName) {
     $raw = & conda env list --json
@@ -100,6 +132,16 @@ Write-Host 'Requires: Windows, Conda, internet; an NVIDIA CUDA GPU is recommende
 Assert-Success 'Conda availability (install Miniconda and open a Conda-enabled shell)'
 if ($GuiOnly -and $WithSAM3) { throw 'Use either -GuiOnly or -WithSAM3, not both.' }
 Create-Env $GuiEnv
+Run-InEnv $GuiEnv @('python','-c','import sys; assert sys.version_info[:2] == (3,12) and sys.maxsize > 2**32, "Python 3.12 x64 required"') 'Verify Python 3.12 x64'
+$localDir = Join-Path $root '.local'
+New-Item -ItemType Directory -Force -Path $localDir | Out-Null
+$hardwareFile = Join-Path $localDir 'hardware.json'
+$hardwareArgs = @('python',(Join-Path $root 'hardware_probe.py'),'--backend',$TorchBackend,'--output',$hardwareFile)
+if ($WithSAM3) { $hardwareArgs += '--with-sam3' }
+Run-InEnv $GuiEnv $hardwareArgs 'Inspect Windows hardware and select PyTorch backend'
+$hardware = Get-Content -LiteralPath $hardwareFile -Raw | ConvertFrom-Json
+$selectedBackend = [string]$hardware.backend
+Write-Host "Selected backend: $selectedBackend" -ForegroundColor Cyan
 & conda install -n $GuiEnv -c conda-forge git -y
 Assert-Success 'Install Git in GUI environment'
 Run-InEnv $GuiEnv @('python','-m','pip','install','--upgrade','pip') 'Upgrade GUI pip'
@@ -115,14 +157,14 @@ New-Item -ItemType Directory -Force -Path $sam2Folder | Out-Null
 
 if (-not $GuiOnly) {
     Write-Host 'Installing GUI model backend: official SAM2.1' -ForegroundColor Cyan
-    Run-InEnv $GuiEnv @('python','-m','pip','install','torch==2.9.1','torchvision==0.24.1','--index-url','https://download.pytorch.org/whl/cu128') 'Install CUDA PyTorch GUI'
+    Install-Torch $GuiEnv '2.9.1' '0.24.1' $selectedBackend
     Run-InEnv $GuiEnv @('python','-m','pip','install','--upgrade','wheel','setuptools') 'Install SAM2 build tools'
     $sam2Source = Git-Repo 'sam2' (Join-Path $parent 'sam2_source')
     $env:SAM2_BUILD_CUDA = '0'
     try { Run-InEnv $GuiEnv @('python','-m','pip','install','--no-build-isolation','-e',$sam2Source) 'Install official SAM2' }
     finally { Remove-Item Env:SAM2_BUILD_CUDA -ErrorAction SilentlyContinue }
     Run-InEnv $GuiEnv @('python','-c','from sam2.build_sam import build_sam2; from sam2.sam2_image_predictor import SAM2ImagePredictor; print("SAM2 imports OK")') 'Verify SAM2 import'
-    Run-InEnv $GuiEnv @('python','-c','import torch; print("CUDA available:",torch.cuda.is_available()); print("GPU:",torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU fallback")') 'Verify CUDA status'
+    Test-Torch $GuiEnv $selectedBackend
     $files = @('sam2.1_hiera_tiny.pt')
     if ($Models -ne 'tiny') { $files += 'sam2.1_hiera_small.pt' }
     if ($Models -eq 'all') { $files += 'sam2.1_hiera_base_plus.pt','sam2.1_hiera_large.pt' }
@@ -143,7 +185,8 @@ if ($WithSAM3) {
     Write-Host 'Installing optional SAM3 in a separate Conda environment' -ForegroundColor Cyan
     Create-Env $SAM3Env
     Run-InEnv $SAM3Env @('python','-m','pip','install','--upgrade','pip','wheel','setuptools==80.9.0') 'SAM3 build tools'
-    Run-InEnv $SAM3Env @('python','-m','pip','install','torch==2.10.0','torchvision==0.25.0','--index-url','https://download.pytorch.org/whl/cu128') 'SAM3 CUDA PyTorch'
+    Install-Torch $SAM3Env '2.10.0' '0.25.0' $selectedBackend
+    Test-Torch $SAM3Env $selectedBackend
     $sam3Source = Git-Repo 'sam3' (Join-Path $parent 'sam3_source')
     Run-InEnv $SAM3Env @('python','-m','pip','install','-e',$sam3Source) 'Install Meta SAM3'
     # SAM3 currently imports these modules even for image inference.  Installing
@@ -199,11 +242,13 @@ $config = @{
     sam2_models = $effectiveSam2Folder
     sam3_python = $sam3Python
     sam3_checkpoint = $checkpoint3
+    torch_backend = $selectedBackend
 }
 $config | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $confdir 'config.json') -Encoding UTF8
 Write-Host ''
 Write-Host 'Running local tests and diagnostics...' -ForegroundColor Cyan
 Run-InEnv $GuiEnv @('python','-m','unittest','discover','-s','tests','-p','test_core.py','-v') 'Mask and annotation tests'
+Run-InEnv $GuiEnv @('python','-m','unittest','discover','-s','tests','-p','test_hardware.py','-v') 'Hardware selection tests'
 Run-InEnv $GuiEnv @('python',(Join-Path $root 'check_setup.py')) 'Diagnostic check'
 Write-Host ''
 Write-Host '=== SETUP COMPLETE ===' -ForegroundColor Green
