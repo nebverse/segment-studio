@@ -23,6 +23,23 @@ The standard CUDA build expects a compatible NVIDIA driver. The CUDA version
 shown by `nvidia-smi` is the driver's maximum runtime compatibility, not proof
 of a matching system CUDA toolkit. Full SAM performance depends on GPU/VRAM.
 
+## Hardware detection and CUDA/PyTorch selection
+
+The one-command Windows installer runs `hardware_probe.py` first and records
+the local result in `.local/hardware.json`. It uses conservative NVIDIA Windows
+driver floors CUDA 12.8 >=572.61 and CUDA 12.6 >=561.17; otherwise it falls back
+to CPU mode for SAM2. It warns about limited GPU VRAM, RAM, disk and multi-GPU
+systems. SAM3 on native Windows uses only the tested CUDA 12.8/Triton 3.6
+combination. AMD/Intel GPU acceleration is not configured; CPU fallback
+remains available for SAM2.
+
+A mismatch with an existing PyTorch installation is **not automatically
+replaced**. Preserve the environment or explicitly use `-ReinstallTorch` after
+checking the planned backend. Run `python hardware_probe.py` to see the choice.
+The installer checks a real PyTorch CUDA tensor calculation after installation.
+The CUDA version printed by `nvidia-smi` is the driver's supported level,
+not necessarily a separately installed CUDA Toolkit.
+
 ## SAM2 checkpoint missing
 
 The default setup downloads `models/sam2.1/sam2.1_hiera_tiny.pt` and Small.
