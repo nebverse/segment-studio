@@ -30,8 +30,7 @@ vegetation, and completely smoke-occluded flames. Exported masks are 0/255 PNGs.
 **Prerequisites:** [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or
 Anaconda, internet connection, enough free disk space for PyTorch and model
 checkpoints, and preferably an NVIDIA CUDA GPU. Setup requires PowerShell and
-Windows `curl.exe`. SAM3 requires additional gated-model approval. SAM2 runs
-slowly on CPU; the CUDA 12.8 PyTorch wheels target newer NVIDIA GPUs.
+Windows `curl.exe`. SAM3 requires additional gated-model approval. SAM2 runs slowly on CPU. Setup now checks GPU, NVIDIA driver, VRAM, system RAM and disk before selecting official CPU, CUDA 12.6 or CUDA 12.8 PyTorch wheels.
 
 Download this repository with **Code → Download ZIP**, extract it, then open a
 **Conda-enabled PowerShell** in the extracted `segment-studio` folder.
@@ -43,7 +42,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1
 ```
 
 The single script creates Conda environment `segment_studio`, installs Git,
-PyTorch **2.9.1+cu128**, the official SAM2 Python package, GUI dependencies,
+**PyTorch 2.9.1** with a detected CPU / CUDA 12.6 / CUDA 12.8 build, the official SAM2 Python package, GUI dependencies,
 and downloads **SAM2.1 Tiny + Small** checkpoints. It runs basic tests and
 writes untracked local settings to `.local/config.json`.
 
@@ -51,6 +50,51 @@ To download all four SAM2.1 sizes:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -Models all
+```
+
+### Automatic hardware detection and safe installation
+
+The installer calls `hardware_probe.py` before downloading PyTorch. It checks
+64-bit Windows, Python 3.12, the primary NVIDIA GPU (GPU 0), driver version,
+compute capability, GPU VRAM, physical system RAM and free disk space.
+The detected profile is saved in `.local/hardware.json`, ignored by Git.
+
+| Detected system | Automatic choice |
+| --- | --- |
+| Compatible NVIDIA GPU and Windows driver >=572.61 | CUDA 12.8 |
+| Compatible older NVIDIA GPU/driver >=561.17 | CUDA 12.6 |
+| No suitable NVIDIA CUDA installation | CPU-only PyTorch |
+
+These are conservative compatibility presets rather than guarantees that every
+GPU will support every model. Windows driver versions are checked numerically,
+and a real PyTorch GPU tensor calculation is performed after installation.
+`nvidia-smi` reports *driver CUDA capability*, not the local CUDA Toolkit.
+PyTorch wheels include their own CUDA runtime. See [PyTorch's official version
+list](https://pytorch.org/get-started/previous-versions/) and
+[NVIDIA's CUDA toolkit release notes](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html).
+
+For CPU-only SAM2, use:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -TorchBackend cpu
+```
+
+Advanced overrides are `-TorchBackend cu126` and `-TorchBackend cu128`,
+but unsupported GPU/driver combinations are blocked. On native Windows,
+SAM3 requires the tested CUDA 12.8 + Triton 3.6 combination; on other setups
+the installer explains why and stops before installing the SAM3 environment.
+SAM3 may run out of memory on GPUs with 8 GiB of VRAM.
+
+Matching existing PyTorch installations are reused. A **different** existing
+wheel is not silently overwritten: the installer asks you to opt in with
+`-ReinstallTorch`, which changes only the selected Conda environment(s).
+It does not install or upgrade NVIDIA drivers. Use a different environment
+name to preserve an older setup.
+
+Hardware-only check (does not install anything):
+
+```powershell
+python .\hardware_probe.py
 ```
 
 ### Complete installation: editor + SAM2.1 + SAM3
@@ -216,6 +260,7 @@ registration and no IR annotation propagation. Unpaired RGB images are fine.
 - `sam_backends.py`: SAM2 local inference and SAM3 subprocess bridge.
 - `sam3_worker.py`: isolated SAM3 text inference.
 - `SETUP_WINDOWS.ps1`: single installation/reinstallation entry point.
+- `hardware_probe.py`: standalone hardware analysis and safe PyTorch backend selection.
 - `LAUNCH_WINDOWS.ps1`, `RUN_CHECKS_WINDOWS.ps1`: run and diagnose.
 - `tests/`: fast core tests and optional GUI smoke test.
 - `docs/`: troubleshooting and publishing instructions.
@@ -229,7 +274,8 @@ local checkout without overwriting their untracked data.
 
 ## Testing and limits
 
-Fast checks: `python -m unittest discover -s tests -p test_core.py -v`.
+Fast checks: `python -m unittest discover -s tests -p test_core.py -v` and
+`python -m unittest discover -s tests -p test_hardware.py -v`.
 Optional desktop smoke test (with Tk display):
 `python tests/test_gui_smoke.py`.
 
