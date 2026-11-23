@@ -2,6 +2,10 @@
 [CmdletBinding()]
 param([string]$GuiEnv = '')
 $ErrorActionPreference = 'Stop'
+# Keep GUI/checks isolated from optional packages installed in the Windows user site.
+$env:PYTHONNOUSERSITE = '1'
+Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
 Set-Location $PSScriptRoot
 if (-not $GuiEnv) {
     $cfgFile = Join-Path $PSScriptRoot '.local\config.json'
