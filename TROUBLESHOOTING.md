@@ -95,6 +95,23 @@ The installer checks a real PyTorch CUDA tensor calculation after installation.
 The CUDA version printed by `nvidia-smi` is the driver's supported level,
 not necessarily a separately installed CUDA Toolkit.
 
+## Windows checkpoint downloader install: "The system cannot find the file specified"
+
+On some Windows/Conda combinations, forwarding a pip requirement that contains
+angle brackets (such as `huggingface_hub>=0.25,<2`) through `conda run`
+can be misinterpreted by the shell as file redirection. Setup may stop just
+after a successful SAM2/CUDA test with:
+
+~~~text
+The system cannot find the file specified.
+Install official checkpoint downloader failed (exit code 1).
+~~~
+
+Update with `git pull origin main` and rerun the installer. The current
+version uses the exact `huggingface_hub==0.36.0` requirement, which avoids
+those special characters. Previously installed PyTorch/SAM2 packages are reused.
+This issue does not require administrator access or a new Conda environment.
+
 ## SAM2 checkpoint download fails on a restricted Windows network
 
 If Windows curl reports `CRYPT_E_NO_REVOCATION_CHECK`, the Windows Schannel
