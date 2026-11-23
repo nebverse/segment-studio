@@ -10,6 +10,61 @@ Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html) and open
 **Anaconda Prompt** or a Conda-initialized PowerShell. `conda --version` should
 succeed. A Windows user with restricted admin rights can use per-user Conda.
 
+## Restricted Windows accounts: no administrator password needed
+
+Segment Studio's installation is designed for a **user-writable Conda installation**.
+The Conda environments are created under the current user's Conda directory, not
+in a protected system folder. Cloning a private GitHub repository may show a
+**browser authentication** prompt: this signs in to GitHub and is unrelated to
+Windows administrator permissions.
+
+Conda may print **"Insufficient permissions to write menu folder. Falling back
+to user location."** This is generally a nonfatal warning, not a reason to
+enter an administrator password. Some organization-managed computers can still
+restrict installation or network access. If Windows presents a real User Account
+Control (UAC) dialog requesting an administrator account, do not bypass it:
+use a permitted per-user Conda installation or consult IT.
+
+## Fix: PowerShell/Conda Python quoting and roaming user packages
+
+Installer releases before the setup checks were moved into **setup_checks.py**
+could fail with:
+
+~~~text
+NameError: name 'torch' is not defined
+conda run python -c ... m.version(torch) ...
+~~~
+
+This was a PowerShell argument quoting issue, **not** a missing GPU. Update the
+source code via \`git pull origin main\`, then rerun the same setup command.
+
+If pip mentions unrelated packages such as \`lightly\`, \`rasterio\` or
+\`torchgeo\` when installing the fresh GUI environment, Windows may be allowing
+packages from \`%APPDATA%\Python\Python312\site-packages\` into the Conda
+environment. The installer now sets \`PYTHONNOUSERSITE=1\`, clears inherited
+\`PYTHONPATH\`/\`PYTHONHOME\`, and validates the environment before installing
+packages. The launcher and check script also disable user-site packages.
+
+**Retry without deleting the existing environment:**
+
+~~~powershell
+cd E:\segment-studio
+git pull origin main
+powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -WithSAM3 -Models all
+~~~
+
+Rerunning the installer reuses environments and downloaded files. The first
+attempt may have left some packages partially installed, so check the final
+output. To verify the GUI Conda environment after installation:
+
+~~~powershell
+conda run -n segment_studio python -m pip check
+powershell -NoProfile -ExecutionPolicy Bypass -File .\RUN_CHECKS_WINDOWS.ps1
+~~~
+
+Do **not** run \`pip install --user\` inside these Conda environments, and do
+not reinstall Anaconda as administrator to solve this particular error.
+
 ## Quick environment diagnosis
 
 ```powershell
