@@ -23,6 +23,12 @@ param(
     [string]$ExistingSam3Checkpoint = ''
 )
 $ErrorActionPreference = 'Stop'
+# Never allow packages from %APPDATA%\Python or PYTHONPATH to contaminate the
+# project Conda environments. These settings are local to this PowerShell process.
+$env:PYTHONNOUSERSITE = '1'
+Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
+Remove-Item Env:PIP_USER -ErrorAction SilentlyContinue
 $root = $PSScriptRoot
 Set-Location $root
 
@@ -36,8 +42,7 @@ function Run-InEnv([string]$envName, [string[]]$commandArgs, [string]$step) {
 function Install-Torch([string]$envName, [string]$version, [string]$vision, [string]$backend) {
     # A plain pip requirement torch==X considers both +cu126 and +cu128 satisfied.
     # Check the exact local version to prevent silently retaining a wrong wheel.
-    $probe = 'import importlib.metadata as m, importlib.util; print(m.version("torch") if importlib.util.find_spec("torch") else "NONE")'
-    $existing = & conda run -n $envName python -c $probe
+    $existing = & conda run -n $envName python (Join-Path $root 'setup_checks.py') torch-version
     Assert-Success "Inspect installed PyTorch in $envName"
     $installed = (@($existing | Where-Object { $_.Trim() } | ForEach-Object { $_.Trim() }) | Select-Object -Last 1)
     $wanted = "$version+$backend"
@@ -54,13 +59,7 @@ function Install-Torch([string]$envName, [string]$version, [string]$vision, [str
     Run-InEnv $envName $args "Install PyTorch $wanted"
 }
 function Test-Torch([string]$envName, [string]$backend) {
-    if ($backend -eq 'cpu') {
-        $code = 'import torch; print("Torch:",torch.__version__,"CUDA:",torch.cuda.is_available()); x=torch.ones((32,32)); assert (x*x).sum().item()==1024'
-    } else {
-        $cudaVersion = if ($backend -eq 'cu128') { '12.8' } else { '12.6' }
-        $code = "import torch; assert torch.cuda.is_available(), 'CUDA unavailable'; assert torch.version.cuda == '$cudaVersion', 'Incorrect CUDA build'; x=torch.ones((32,32),device='cuda'); assert (x*x).sum().item()==1024; print('CUDA GPU calculation OK:',torch.cuda.get_device_name(0))"
-    }
-    Run-InEnv $envName @('python','-c',$code) "Verify actual PyTorch computation in $envName"
+    Run-InEnv $envName @('python',(Join-Path $root 'setup_checks.py'),'torch-compute','--backend',$backend) "Verify actual PyTorch computation in $envName"
 }
 function Env-Exists([string]$envName) {
     $raw = & conda env list --json
@@ -77,7 +76,7 @@ function Create-Env([string]$envName) {
     }
 }
 function Env-Python([string]$envName) {
-    $lines = & conda run -n $envName python -c 'import sys; print(sys.executable)'
+    $lines = & conda run -n $envName python (Join-Path $root 'setup_checks.py') python-path
     Assert-Success "Locate Python for $envName"
     $path = @($lines | Where-Object { $_.Trim() -match 'python(?:\.exe)?$' } | ForEach-Object { $_.Trim() } | Select-Object -Last 1)
     if (-not $path -or -not (Test-Path -LiteralPath $path[0])) { throw "Could not locate Python for $envName." }
@@ -132,7 +131,7 @@ Write-Host 'Requires: Windows, Conda, internet; an NVIDIA CUDA GPU is recommende
 Assert-Success 'Conda availability (install Miniconda and open a Conda-enabled shell)'
 if ($GuiOnly -and $WithSAM3) { throw 'Use either -GuiOnly or -WithSAM3, not both.' }
 Create-Env $GuiEnv
-Run-InEnv $GuiEnv @('python','-c','import sys; assert sys.version_info[:2] == (3,12) and sys.maxsize > 2**32, "Python 3.12 x64 required"') 'Verify Python 3.12 x64'
+Run-InEnv $GuiEnv @('python',(Join-Path $root 'setup_checks.py'),'python-version') 'Verify Python 3.12 x64 and isolated site-packages'
 $localDir = Join-Path $root '.local'
 New-Item -ItemType Directory -Force -Path $localDir | Out-Null
 $hardwareFile = Join-Path $localDir 'hardware.json'
@@ -162,7 +161,7 @@ if (-not $GuiOnly) {
     $env:SAM2_BUILD_CUDA = '0'
     try { Run-InEnv $GuiEnv @('python','-m','pip','install','--no-build-isolation','-e',$sam2Source) 'Install official SAM2' }
     finally { Remove-Item Env:SAM2_BUILD_CUDA -ErrorAction SilentlyContinue }
-    Run-InEnv $GuiEnv @('python','-c','from sam2.build_sam import build_sam2; from sam2.sam2_image_predictor import SAM2ImagePredictor; print("SAM2 imports OK")') 'Verify SAM2 import'
+    Run-InEnv $GuiEnv @('python',(Join-Path $root 'setup_checks.py'),'sam2-import') 'Verify SAM2 import'
     Test-Torch $GuiEnv $selectedBackend
     $files = @('sam2.1_hiera_tiny.pt')
     if ($Models -ne 'tiny') { $files += 'sam2.1_hiera_small.pt' }
@@ -183,7 +182,7 @@ $sam3Python = $null
 if ($WithSAM3) {
     Write-Host 'Installing optional SAM3 in a separate Conda environment' -ForegroundColor Cyan
     Create-Env $SAM3Env
-    Run-InEnv $SAM3Env @('python','-c','import sys; assert sys.version_info[:2] == (3,12) and sys.maxsize > 2**32, "Python 3.12 x64 required"') 'Verify SAM3 Python 3.12 x64'
+    Run-InEnv $SAM3Env @('python',(Join-Path $root 'setup_checks.py'),'python-version') 'Verify SAM3 Python 3.12 x64 and isolated site-packages'
     Run-InEnv $SAM3Env @('python','-m','pip','install','--upgrade','pip','wheel','setuptools==80.9.0') 'SAM3 build tools'
     Install-Torch $SAM3Env '2.10.0' '0.25.0' $selectedBackend
     Test-Torch $SAM3Env $selectedBackend
@@ -196,8 +195,7 @@ if ($WithSAM3) {
         'numpy==1.26.4','setuptools==80.9.0','einops==0.8.2','triton-windows==3.6.0.post26',
         'pycocotools','psutil','huggingface_hub') 'Complete SAM3 Windows dependencies'
     Run-InEnv $SAM3Env @('python','-m','pip','check') 'Check SAM3 dependency consistency'
-    Run-InEnv $SAM3Env @('python','-c',
-        'import torch,einops,triton,psutil,numpy; from pycocotools import mask; from sam3.model_builder import build_sam3_image_model; from sam3.model.sam3_image_processor import Sam3Processor; print("SAM3 IMPORT TEST PASSED; CUDA:",torch.cuda.is_available())') 'Verify SAM3 imports'
+    Run-InEnv $SAM3Env @('python',(Join-Path $root 'setup_checks.py'),'sam3-import') 'Verify SAM3 imports'
     $sam3Python = Env-Python $SAM3Env
     & conda run --no-capture-output -n $GuiEnv git -C $sam3Source rev-parse HEAD
     Assert-Success 'Read SAM3 Git revision'
