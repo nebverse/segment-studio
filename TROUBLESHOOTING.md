@@ -95,6 +95,29 @@ The installer checks a real PyTorch CUDA tensor calculation after installation.
 The CUDA version printed by `nvidia-smi` is the driver's supported level,
 not necessarily a separately installed CUDA Toolkit.
 
+## SAM2 checkpoint download fails on a restricted Windows network
+
+If Windows curl reports `CRYPT_E_NO_REVOCATION_CHECK`, the Windows Schannel
+TLS certificate-revocation check could not finish. This is **not** a CUDA or
+administrator-permissions error; it can happen on restricted networks.
+
+The installer first downloads **official Meta SAM2.1 checkpoints** from public
+Hugging Face repositories using normal HTTPS certificate verification.
+It falls back to Meta's original public server as needed. All checkpoints
+are verified against published SHA-256 hashes. Completed, verified downloads
+are reused on subsequent installations.
+
+After `git pull origin main`, rerun the installation command. If both
+official routes are blocked, contact your network administrator or use an
+approved network. **Do not disable TLS verification or use `curl -k` /
+`--insecure`.** No Windows administrator password is needed to retry.
+
+For special institutional cases, `download_sam2.py` has an explicit
+`--allow-offline-revocation` option when invoked manually. That enables
+curl's narrower `--ssl-revoke-best-effort` only on its direct-server fallback
+and does not disable hostname or certificate-chain verification. Use it only
+with network-policy approval; it is not enabled automatically.
+
 ## SAM2 checkpoint missing
 
 The default setup downloads `models/sam2.1/sam2.1_hiera_tiny.pt` and Small.
