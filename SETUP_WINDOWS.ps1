@@ -149,7 +149,7 @@ if (-not $GuiOnly) {
     Test-Torch $GuiEnv $selectedBackend
     # SAM2.1 checkpoints are publicly hosted on Meta's official Hugging Face
     # repositories. Use Python HTTPS first; direct Meta/curl is fallback only.
-    Run-InEnv $GuiEnv @('python','-m','pip','install','huggingface_hub>=0.25,<2') 'Install official checkpoint downloader'
+    Run-InEnv $GuiEnv @('python','-m','pip','install','huggingface_hub==0.36.0') 'Install official checkpoint downloader'
     $files = @('sam2.1_hiera_tiny.pt')
     if ($Models -ne 'tiny') { $files += 'sam2.1_hiera_small.pt' }
     if ($Models -eq 'all') { $files += 'sam2.1_hiera_base_plus.pt','sam2.1_hiera_large.pt' }
