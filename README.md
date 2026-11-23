@@ -27,6 +27,14 @@ conda --version
 
 You do **not** need Git installed beforehand if you download the repository as a ZIP. Setup installs it into the GUI environment.
 
+**No administrator rights are normally needed.** Use a Conda installation
+writable by your Windows account. If Conda reports that it cannot write a
+system menu folder and falls back to your user location, that is generally a
+warning, not a failed installation. On managed computers, an actual Windows
+administrator-password/UAC prompt should be handled by IT, not bypassed.
+GitHub browser authentication for a private repository is separate from
+Windows administrator authentication.
+
 ### 2. Download the application
 
 **Simplest method:**
@@ -254,6 +262,24 @@ segment-studio/
 ~~~
 
 **Conda environments are installed within your Conda installation**, not inside this repository folder. The model directories, cloned external code, and generated local config are not committed to Git.
+
+### Updating an installation after a setup error
+
+If you cloned the repository with Git, you can get installer fixes without
+reinstalling Anaconda or deleting any Conda environment:
+
+~~~powershell
+cd "C:\Projects\segment-studio"
+git pull origin main
+powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -WithSAM3 -Models all
+~~~
+
+Use the actual path to your clone. Earlier Windows installer builds could
+misquote inline Python commands or load packages from the Windows roaming
+Python user site. The current installer runs checks from `setup_checks.py`
+and isolates the Conda environments using `PYTHONNOUSERSITE=1`. A failed
+installation is generally safe to retry; files and packages already installed
+are reused. See [Troubleshooting](TROUBLESHOOTING.md).
 
 ## Further help and project information
 
