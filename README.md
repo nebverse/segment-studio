@@ -77,7 +77,7 @@ In the project directory, run **one command**:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1
 ~~~
 
-The installer creates the GUI environment, inspects your hardware, selects a supported PyTorch build, installs the official SAM2.1 package and downloads **SAM2.1 Tiny and Small** checkpoints.
+The installer creates the GUI environment, inspects your hardware, selects a supported PyTorch build, installs the official SAM2.1 package and downloads **SAM2.1 Tiny and Small** checkpoints. Downloads first use Meta's official public Hugging Face repositories (no account approval needed for SAM2.1), fall back to Meta's direct server if necessary, and verify each checkpoint's SHA-256 hash.
 
 To install **all four** SAM2.1 checkpoints (Tiny, Small, Base+ and Large), run this **instead**:
 
