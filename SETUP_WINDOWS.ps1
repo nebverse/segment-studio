@@ -97,25 +97,9 @@ function Git-Repo([string]$kind) {
     return $newFolder
 }
 function Download-Sam2([string]$name, [string]$folder, [string]$reuse) {
-    $destination = Join-Path $folder $name
-    if ((Test-Path -LiteralPath $destination) -and (Get-Item -LiteralPath $destination).Length -gt 1000000) {
-        Write-Host "Already present: $name"; return
-    }
-    if ($reuse) {
-        $old = Join-Path $reuse $name
-        if ((Test-Path -LiteralPath $old) -and (Get-Item -LiteralPath $old).Length -gt 1000000) {
-            Write-Host "Reusing existing SAM2 checkpoint: $old"; return
-        }
-    }
-    if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) { throw 'Windows curl.exe not found.' }
-    $url = "https://dl.fbaipublicfiles.com/segment_anything_2/092824/$name"
-    $partial = "$destination.part"
-    Write-Host "Downloading $name from Meta ..." -ForegroundColor Cyan
-    & curl.exe --location --fail --retry 3 --connect-timeout 30 --continue-at - --output $partial $url
-    Assert-Success "Download $name"
-    if ((Get-Item -LiteralPath $partial).Length -lt 1000000) { throw "Download appears incomplete: $partial" }
-    Move-Item -LiteralPath $partial -Destination $destination -Force
-    Write-Host "Downloaded: $destination"
+    $args = @('python',(Join-Path $root 'download_sam2.py'),'--name',$name,'--folder',$folder)
+    if ($reuse) { $args += @('--reuse',$reuse) }
+    Run-InEnv $GuiEnv $args "Download and verify $name"
 }
 function Existing-Checkpoint([string[]]$paths) {
     foreach ($p in $paths) { if ($p -and (Test-Path -LiteralPath $p -PathType Leaf) -and
@@ -163,6 +147,9 @@ if (-not $GuiOnly) {
     finally { Remove-Item Env:SAM2_BUILD_CUDA -ErrorAction SilentlyContinue }
     Run-InEnv $GuiEnv @('python',(Join-Path $root 'setup_checks.py'),'sam2-import') 'Verify SAM2 import'
     Test-Torch $GuiEnv $selectedBackend
+    # SAM2.1 checkpoints are publicly hosted on Meta's official Hugging Face
+    # repositories. Use Python HTTPS first; direct Meta/curl is fallback only.
+    Run-InEnv $GuiEnv @('python','-m','pip','install','huggingface_hub>=0.25,<2') 'Install official checkpoint downloader'
     $files = @('sam2.1_hiera_tiny.pt')
     if ($Models -ne 'tiny') { $files += 'sam2.1_hiera_small.pt' }
     if ($Models -eq 'all') { $files += 'sam2.1_hiera_base_plus.pt','sam2.1_hiera_large.pt' }
