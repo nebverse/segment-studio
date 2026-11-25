@@ -1,5 +1,7 @@
 # Development and release checks
 
+[← Home](README.md) · [Installation](INSTALLATION.md) · [Repository maintenance](GITHUB_PUBLISHING.md)
+
 Segment Studio is the distributable application, not the internal FireMask development workspace. Use portable repository names, relative paths, `.local/config.json`, `segment_studio` / `segment_studio_sam3` environments and `segment_studio_output` for new saves. Read legacy `firemask_output` masks without modifying them. Do not package model weights, lab datasets, credentials or internal environment names.
 
 | File | Responsibility |
@@ -14,9 +16,16 @@ Segment Studio is the distributable application, not the internal FireMask devel
 | `download_sam2.py` | Official checkpoint downloads and SHA-256 checks |
 | `LAUNCH_WINDOWS.ps1`, `RUN_CHECKS_WINDOWS.ps1` | Launch and diagnostics |
 
+## Inference architecture
+
+- Full image: pass RGB to the selected model.
+- ROI crop: pad the selected rectangle, run SAM2.1 with a local box and optional clicks, SAM3 with text on a temporary lossless PNG, or the RGB heuristic; clip and place the answer at original RGB coordinates.
+- Native SAM2 box: retain full-image embedding and use a geometric box prompt. Not exposed for SAM3.
+- Candidate state captures the original inference scope and ROI, so changing UI settings cannot change where a pending candidate is merged. Keep temporary predictions separate from the accepted mask.
+
 ## Tests
 
-From the root in the GUI environment:
+From the root in the distributable GUI environment on a test computer (or run the Python unit tests in the existing internal FireMask environment with compatible dependencies; this does not validate the distributable installer):
 
 ```powershell
 python -m unittest discover -s tests -v

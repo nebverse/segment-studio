@@ -1,92 +1,37 @@
-# Publish Segment Studio on GitHub
+# Repository maintenance and distribution
 
-## 1. Check what is allowed to be public
+[← Home](README.md) · [Development checks](DEVELOPMENT.md) · [Licensing](LICENSING.md)
 
-Ask the project supervisor/lab before publishing unpublished research images,
-annotations, internal dataset paths or code. Do not assume you can license
-the source on behalf of your lab; review [licensing](LICENSING.md) before
-public release. Official Meta models and checkpoints are not
-included and retain their own license/access terms.
+The existing distribution repository is [nebverse/segment-studio](https://github.com/nebverse/segment-studio). Do not reinitialize it or overwrite its history. Keep the internal FireMask workspace separate from the portable Segment Studio package.
 
-## 2. Create an EMPTY repository on GitHub
-
-Open <https://github.com/new>. Suggested settings:
-
-- Repository name: `segment-studio`
-- Description: `Local SAM-assisted image segmentation and mask annotation editor`
-- Visibility: **Private** until you have approval to publish; change it later.
-- **Do not** add GitHub's README or .gitignore during creation; they
-  are already in the ZIP. Select a license later once the rights are clear.
-
-## 3. Commit the extracted folder from PowerShell
-
-Open a Conda terminal in your extracted `segment-studio` folder. First ensure
-Git works. Installing through `SETUP_WINDOWS.ps1` creates Git in the GUI Conda
-environment, so if it is not in your shell yet use:
-
-```powershell
-conda activate segment_studio
-git --version
-```
-
-Then run:
-
-```powershell
-git init -b main
-git add .
-git status --short
-```
-
-**Review every staged filename**. No `sam3.pt`, `.pt`, `.pth`, real `.jpg` / `.png`,
-research data, `segment_studio_output`, `.local/config.json`, access tokens or any
-private files should appear. If they do, stop and remove them from staging and
-extend `.gitignore` **before** committing.
-
-```powershell
-git commit -m "Initial Segment Studio application and Windows setup"
-git remote add origin https://github.com/YOUR_USERNAME/segment-studio.git
-git push -u origin main
-```
-
-Replace `YOUR_USERNAME` with your GitHub account or organizational namespace.
-GitHub may prompt you to authenticate in a browser or use a credential manager.
-GitHub account passwords are not accepted as Git HTTPS authentication.
-
-Alternatively, install [GitHub Desktop](https://desktop.github.com/) and use
-**File → Add local repository** to publish the extracted directory.
-
-## 4. Share installation instructions
-
-Give collaborators the repository URL. They can use **Code → Download ZIP**, or:
-
-```powershell
-git clone https://github.com/YOUR_USERNAME/segment-studio.git
-cd segment-studio
-powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1
-```
-
-If they have approved SAM3 access, they can choose:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -WithSAM3
-```
-
-## 5. Update the code later
-
-Modify and test the code locally, then:
+## Update an existing clone
 
 ```powershell
 git status
-git add segment_studio.py mask_utils.py sam_backends.py roi_utils.py tests README.md ANNOTATION_GUIDE.md TROUBLESHOOTING.md
-# Or git add . after verifying nothing private is staged.
-git commit -m "Improve annotation editing"
-git push
+git switch main
+git pull --ff-only origin main
+git switch -c feature/your-change
 ```
 
-Prefer a feature branch and pull request for changes to a working installation. See [development checks](DEVELOPMENT.md). Collaborators can update source code using `git pull --ff-only origin main` after review and merge. Their downloaded models
-and `.local/config.json` are ignored and should remain in place. Avoid edits
-inside the ignored `external/` clones unless you intend to maintain a separate
-upstream fork; such edits are not part of this repository.
+Port only tested changes, adapting environment names, relative paths and output conventions. Review [development checks](DEVELOPMENT.md). The internal development computer can use its own existing environment for lightweight tests; fresh install checks belong on a separate Windows machine.
 
-If a secret was ever committed, simply deleting it from the current commit is
-not enough; revoke/rotate the key and clean repository history as appropriate.
+```powershell
+git status --short
+git diff --check
+# Stage the intended source, test and documentation files.
+git add README.md
+git diff --cached --stat
+git diff --cached --check
+git commit -m "Describe the change"
+git push -u origin feature/your-change
+```
+
+The staging example is documentation-only; explicitly stage other intended files for code changes. Open a pull request, review and merge into main. Synchronize locally, then optionally delete the merged branch.
+
+## Safe sharing
+
+Share the repository URL with authorized collaborators and point them to [Installation](INSTALLATION.md). They can download ZIP without Git or clone and choose their model setup. They do not need the internal FireMask environment.
+
+Review every staged file. Never commit weights, external clones, .local/config.json, tokens, research images, masks, annotation outputs or private paths. If a secret was committed, rotate/revoke it and clean history as appropriate; deleting the current copy is insufficient.
+
+Keep private visibility until publication and licensing are approved by the relevant owners/institution. For a genuinely new repository, use GitHub's [new repository page](https://github.com/new), create an empty private repository, and initialize/push a clean source folder only after reviewing every staged filename. Do not do that for this existing repository.

@@ -1,17 +1,17 @@
-# License decision before publishing
+# Licensing and publication
 
-The application source in this package has **no public license selected yet**.
-Choose a license with the relevant code owner(s) and, if needed, your lab or
-institution before making the repository public or inviting outside reuse.
-GitHub's "Choose a license" guide: https://choosealicense.com/
+[← Home](README.md) · [Repository maintenance](GITHUB_PUBLISHING.md)
 
-For example, MIT permits broad reuse with attribution, while copyleft licenses
-place additional conditions on downstream redistributions. Those are real
-legal choices; this package does not choose one on your behalf.
+> [!IMPORTANT]
+> No public license has been selected for Segment Studio source. Access to a private repository does not grant a public redistribution license.
 
-Regardless of your repository license, SAM2/SAM3 official source and their
-pretrained model checkpoints retain Meta's separate licenses, usage
-restrictions and gated access conditions. Do not commit their weights or
-unpublished research photographs/annotations to this repository.
+Obtain agreement from the relevant source-code owners and, where necessary, lab/institution before public release or inviting outside reuse. Review [Choose a License](https://choosealicense.com/) when deciding; this repository does not select a license on anyone's behalf.
 
-Upstream references: [SAM2 license](https://github.com/facebookresearch/sam2/blob/main/LICENSE), [SAM3 license](https://github.com/facebookresearch/sam3/blob/main/LICENSE), and [SAM3 model access](https://huggingface.co/facebook/sam3). Access to a private repository does not by itself grant a public redistribution license. The new GUI/ROI code does not change these licensing decisions.
+| Component | Reference |
+| :--- | :--- |
+| Segment Studio source | No public license selected |
+| SAM2 source / checkpoints | [Official SAM2 license](https://github.com/facebookresearch/sam2/blob/main/LICENSE) |
+| SAM3 source / checkpoints | [Official SAM3 license](https://github.com/facebookresearch/sam3/blob/main/LICENSE), [gated model terms/access](https://huggingface.co/facebook/sam3) |
+| Research data and annotations | Separate rights and institutional permissions |
+
+Upstream model code and weights are installed separately; their respective terms and access restrictions still apply. Do not redistribute gated weights, unpublished research imagery or annotations without authorization. No credentials or model weights belong in Git. The ROI, GUI and documentation updates do not change ownership or licensing decisions.

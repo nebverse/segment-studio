@@ -1,8 +1,20 @@
 # Installation and inference troubleshooting
 
-All commands below run in Windows PowerShell at the repository root. The
-single `SETUP_WINDOWS.ps1` script handles these automatically on a fresh setup;
-manual commands are for diagnosing unusual failures.
+[← Home](README.md) · [Installation](INSTALLATION.md) · [Models](models/README.md)
+
+All commands run in Conda-enabled Windows PowerShell at the repository root. Setup creates the environments automatically; manual commands here are for diagnosis and repair only.
+
+## Find your problem
+
+| Symptom | Solution |
+| :--- | :--- |
+| Conda missing / permissions | [Conda](#conda-isnt-recognized) · [Restricted accounts](#restricted-windows-accounts-no-administrator-password-needed) |
+| Wrong Python packages / quoting error | [Environment isolation](#fix-powershellconda-python-quoting-and-roaming-user-packages) |
+| CUDA unavailable / incompatible PyTorch | [Hardware detection](#hardware-detection-and-cudapytorch-selection) |
+| SAM2 download / missing checkpoint | [Restricted network](#sam2-checkpoint-download-fails-on-a-restricted-windows-network) · [Missing checkpoint](#sam2-checkpoint-missing) |
+| SAM3 401/403, import failure or OOM | [Access](#sam3-access-denied-401403) · [Dependencies](#sam3-missing-module-errors-on-windows) · [Memory](#sam3-worker-out-of-memory) |
+| ROI / disappearing mask | [Candidate workflow](#full-image-prediction-disappears-when-refining-small-flames) · [ROI](#roi-does-not-run-or-masks-appear-outside-the-rectangle) |
+| Mask reopening / manual edits | [Saved masks](#masks-are-not-loading-after-restart) · [Boundary editor](#editing-a-boundary) |
 
 ## Conda isn't recognized
 
@@ -36,20 +48,20 @@ conda run python -c ... m.version(torch) ...
 ~~~
 
 This was a PowerShell argument quoting issue, **not** a missing GPU. Update the
-source code via \`git pull origin main\`, then rerun the same setup command.
+source code via `git pull --ff-only origin main`, then rerun the same setup command.
 
-If pip mentions unrelated packages such as \`lightly\`, \`rasterio\` or
-\`torchgeo\` when installing the fresh GUI environment, Windows may be allowing
-packages from \`%APPDATA%\Python\Python312\site-packages\` into the Conda
-environment. The installer now sets \`PYTHONNOUSERSITE=1\`, clears inherited
-\`PYTHONPATH\`/\`PYTHONHOME\`, and validates the environment before installing
+If pip mentions unrelated packages such as `lightly`, `rasterio` or
+`torchgeo` when installing the fresh GUI environment, Windows may be allowing
+packages from `%APPDATA%\Python\Python312\site-packages` into the Conda
+environment. The installer now sets `PYTHONNOUSERSITE=1`, clears inherited
+`PYTHONPATH`/`PYTHONHOME`, and validates the environment before installing
 packages. The launcher and check script also disable user-site packages.
 
 **Retry without deleting the existing environment:**
 
 ~~~powershell
-cd E:\segment-studio
-git pull origin main
+cd "C:\Projects\segment-studio"
+git pull --ff-only origin main
 powershell -NoProfile -ExecutionPolicy Bypass -File .\SETUP_WINDOWS.ps1 -WithSAM3 -Models all
 ~~~
 
@@ -62,7 +74,7 @@ conda run -n segment_studio python -m pip check
 powershell -NoProfile -ExecutionPolicy Bypass -File .\RUN_CHECKS_WINDOWS.ps1
 ~~~
 
-Do **not** run \`pip install --user\` inside these Conda environments, and do
+Do **not** run `pip install --user` inside these Conda environments, and do
 not reinstall Anaconda as administrator to solve this particular error.
 
 ## Quick environment diagnosis
@@ -107,7 +119,7 @@ The system cannot find the file specified.
 Install official checkpoint downloader failed (exit code 1).
 ~~~
 
-Update with `git pull origin main` and rerun the installer. The current
+Update with `git pull --ff-only origin main` and rerun the installer. The current
 version uses the exact `huggingface_hub==0.36.0` requirement, which avoids
 those special characters. Previously installed PyTorch/SAM2 packages are reused.
 This issue does not require administrator access or a new Conda environment.
@@ -124,7 +136,7 @@ It falls back to Meta's original public server as needed. All checkpoints
 are verified against published SHA-256 hashes. Completed, verified downloads
 are reused on subsequent installations.
 
-After `git pull origin main`, rerun the installation command. If both
+After `git pull --ff-only origin main`, rerun the installation command. If both
 official routes are blocked, contact your network administrator or use an
 approved network. **Do not disable TLS verification or use `curl -k` /
 `--insecure`.** No Windows administrator password is needed to retry.
@@ -152,10 +164,7 @@ load the models, compare with upstream [SAM2 installation](https://github.com/fa
 
 ## SAM3 access denied (401/403)
 
-SAM3's model weights are gated: request/accept access at
-<https://huggingface.co/facebook/sam3>, authenticate with an approved account,
-and rerun the installer. The token is stored by Hugging Face outside this Git
-repository. **Do not** put tokens in PowerShell scripts, config files or Git.
+SAM3 weights are gated. Follow [Hugging Face setup](INSTALLATION.md#sam3-access-on-hugging-face): accept/request access using your account, create a permitted read token and authenticate when setup prompts. If the runtime already exists, check the account with `conda run -n segment_studio_sam3 hf auth whoami`; use `conda run -n segment_studio_sam3 hf auth login` to authenticate with the approved account. Rerun the same intended SAM3 setup profile. Use a custom environment name if configured. Tokens are managed outside Git; never put them in project files.
 
 ## SAM3 missing-module errors on Windows
 
@@ -205,7 +214,7 @@ overlay previews as label masks.
 
 ## RGB–IR mismatch
 
-IR pairing is for side-by-side visual inspection, not registration or label
+IR pairing is for optional read-only visual inspection, not registration or label
 transfer. A matching filename or CSV pair does not guarantee optical alignment.
 For now, edits/exports are restricted to the RGB coordinate system.
 
@@ -215,7 +224,7 @@ Update to the modern ROI workspace. Green predictions are temporary; use **Apply
 
 ## ROI does not run or masks appear outside the rectangle
 
-Choose ROI crop and draw at least an 8 × 8 pixel rectangle in RGB view. The padded context is inference-only; only the original rectangle is merged. Native SAM2 box mode is available only for SAM2.1. Full-image SAM2 requires a positive point. Existing applied masks outside an ROI are intentionally preserved. Clear ROI returns to full-image inference. For missed tiny objects, try tighter cropping, a different context, additional SAM2 clicks or manual correction.
+Choose ROI crop and draw at least an 8 × 8 pixel rectangle in RGB view. The padded context is inference-only; only the original rectangle is merged. **SAM3 supports ROI crop with a text prompt such as `flames`.** Every SAM2.1 variant and the RGB filter also supports ROI crop. Only the distinct native SAM2 box mode is restricted to SAM2.1. Full-image SAM2 requires a positive point. Existing applied masks outside an ROI are intentionally preserved. Clear ROI returns to full-image inference. For missed tiny objects, try tighter cropping, a different context, additional SAM2 clicks or manual correction.
 
 ## Editing a boundary
 
