@@ -12,6 +12,7 @@ All commands run in Conda-enabled Windows PowerShell at the repository root. Set
 | Wrong Python packages / quoting error | [Environment isolation](#fix-powershellconda-python-quoting-and-roaming-user-packages) |
 | CUDA unavailable / incompatible PyTorch | [Hardware detection](#hardware-detection-and-cudapytorch-selection) |
 | SAM2 download / missing checkpoint | [Restricted network](#sam2-checkpoint-download-fails-on-a-restricted-windows-network) · [Missing checkpoint](#sam2-checkpoint-missing) |
+| PyTorch WinError 1114 / c10.dll | [DLL initialization](#pytorch-winerror-1114-c10dll-when-running-sam3) |
 | SAM3 401/403, import failure or OOM | [Access](#sam3-access-denied-401403) · [Dependencies](#sam3-missing-module-errors-on-windows) · [Memory](#sam3-worker-out-of-memory) |
 | ROI / disappearing mask | [Candidate workflow](#full-image-prediction-disappears-when-refining-small-flames) · [ROI](#roi-does-not-run-or-masks-appear-outside-the-rectangle) |
 | Mask reopening / manual edits | [Saved masks](#masks-are-not-loading-after-restart) · [Boundary editor](#editing-a-boundary) |
@@ -194,6 +195,20 @@ python -c "from sam3.model_builder import build_sam3_image_model; from sam3.mode
 
 `pkg_resources is deprecated` / `timm.models.layers is deprecated` are warnings,
 not import failures. Imports alone do not validate SAM3 CUDA inference.
+
+## PyTorch WinError 1114 (c10.dll) when running SAM3
+
+If the traceback ends in roi_utils.py → sam_backends.py clear() → import torch, an earlier version unnecessarily imported PyTorch in the main GUI environment before starting the separate SAM3 worker. Update the source (Git pull or copy the latest source into a ZIP installation, retaining local models/config) and restart the app. The hotfix only clears an already initialized CUDA cache; it does not import PyTorch for SAM3 cleanup. No environment recreation or checkpoint download is required.
+
+This removes that particular failure path; it does not repair a broken PyTorch runtime. If SAM2 inference or the SAM3 worker still fails, close the GUI and test the relevant installed environment independently:
+
+~~~powershell
+conda run -n segment_studio python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+conda run -n segment_studio_sam3 python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+nvidia-smi
+~~~
+
+Run only checks for environments that exist and use custom names if configured. A GUI-only install intentionally has no PyTorch. If standalone import fails, inspect the Windows runtime and driver. Microsoft provides the [Visual C++ Redistributable x64](https://aka.ms/vc14/vc_redist.x64.exe) ([official documentation](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/)); install/repair it with IT approval if needed. WinError 1114 does not identify a specific missing dependency. If standalone imports work but GUI SAM2 fails, investigate import order and DLL conflicts; [PyTorch issue #166628](https://github.com/pytorch/pytorch/issues/166628) describes a similar GUI import-order problem with PyQt, not proof of the same Tkinter cause. Avoid changing PyTorch pins or reinstalling models without diagnosis.
 
 ## SAM3 worker out of memory
 

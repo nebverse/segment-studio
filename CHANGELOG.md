@@ -2,6 +2,12 @@
 
 [← Home](README.md)
 
+## Windows compatibility hotfix
+
+- Avoid importing GUI PyTorch merely to release SAM2 resources before launching the isolated SAM3 worker. Release the CUDA allocator cache only if CUDA is already initialized.
+- Regression tests cover full-image and ROI SAM3 dispatch without GUI PyTorch, initialized CUDA cleanup, and uninitialized/partial module states.
+- No package, checkpoint, installer or environment changes. This addresses the unnecessary import, not every possible Windows DLL initialization failure.
+
 ## Documentation refresh
 
 - Clear capability matrix: **SAM3, all SAM2.1 variants and RGB filter support ROI crop**; native SAM2 box prompting is distinct.

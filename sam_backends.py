@@ -106,12 +106,12 @@ class Sam2Local:
         self.image_key = None
         import gc
         gc.collect()
-        try:
-            import torch
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except ImportError:
-            pass
+        # Never import PyTorch just to release a cache. SAM3 runs in a
+        # separate process; a cold GUI may not have imported torch at all.
+        torch = sys.modules.get('torch')
+        cuda = getattr(torch, 'cuda', None)
+        if cuda is not None and cuda.is_initialized():
+            cuda.empty_cache()
 
     def predict(self, variant: str, image: Image.Image, points: list[tuple[int, int, int]], image_key: str, box=None) -> Image.Image:
         import torch
