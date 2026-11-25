@@ -153,3 +153,36 @@ def load_image_pairs(csv_path: Path) -> dict[str, str]:
             raise ValueError('image_pairs.csv requires rgb_file,ir_file columns.')
         return {row['rgb_file'].strip(): row['ir_file'].strip() for row in rows
                 if row.get('rgb_file', '').strip() and row.get('ir_file', '').strip()}
+
+
+def apply_boundary_delta(mask, full_contour, baseline, edited):
+    """Apply only the rasterized change between editable outlines, not wholesale
+    simplification. Preserve holes and foreground not connected to the selected
+    component. Work on a local bounding crop rather than full-size scratch arrays.
+    """
+    if baseline == edited:
+        return mask.copy()
+    coords = list(full_contour) + list(baseline) + list(edited)
+    x0=max(0,min(x for x,y in coords)); y0=max(0,min(y for x,y in coords))
+    x1=min(mask.width,max(x for x,y in coords)+1); y1=min(mask.height,max(y for x,y in coords)+1)
+    if x1<=x0 or y1<=y0: return mask.copy()
+    box=(x0,y0,x1,y1); crop=mask.crop(box)
+    def raster(poly):
+        im=Image.new('L',crop.size,0)
+        ImageDraw.Draw(im).polygon([(x-x0,y-y0) for x,y in poly],fill=255)
+        return np.asarray(im)>0
+    before,after,full=raster(baseline),raster(edited),raster(full_contour)
+    orig=np.array(crop)>0
+    # Flood only the selected 8-connected component. A separate island within
+    # a hole is not removed when the outer polygon is contracted.
+    connected=orig.astype(np.uint8)
+    sx,sy=full_contour[0]; sx-=x0; sy-=y0
+    if not (0<=sx<crop.width and 0<=sy<crop.height and connected[sy,sx]):
+        raise ValueError('Original boundary seed is not foreground.')
+    cv2.floodFill(connected,None,(sx,sy),2,flags=8)
+    selected=connected==2
+    removed=before & ~after & selected
+    added=after & ~before & ~(full & ~orig)
+    changed=(orig & ~removed) | added
+    out=mask.copy(); out.paste(Image.fromarray(changed.astype(np.uint8)*255,'L'),box)
+    return out
