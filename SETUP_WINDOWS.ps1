@@ -130,7 +130,18 @@ Assert-Success 'Install Git in GUI environment'
 Run-InEnv $GuiEnv @('python','-m','pip','install','--upgrade','pip') 'Upgrade GUI pip'
 Run-InEnv $GuiEnv @('python','-m','pip','install','-r',(Join-Path $root 'requirements-gui.txt')) 'Install GUI requirements'
 
+# Preserve configured external weights on repeat setup; explicit arguments win.
+$previousConfig = $null
+$previousConfigFile = Join-Path $localDir 'config.json'
+if (Test-Path -LiteralPath $previousConfigFile) {
+    try { $previousConfig = Get-Content -LiteralPath $previousConfigFile -Raw | ConvertFrom-Json }
+    catch { Write-Warning 'Could not read previous local config; using current arguments.' }
+}
 $sam2Reuse = $ExistingSam2Models
+if (-not $sam2Reuse -and $previousConfig -and $previousConfig.sam2_models -and
+    (Test-Path -LiteralPath $previousConfig.sam2_models -PathType Container)) {
+    $sam2Reuse = [string]$previousConfig.sam2_models
+}
 if ($sam2Reuse -and -not (Test-Path -LiteralPath $sam2Reuse -PathType Container)) {
     throw "-ExistingSam2Models points to a missing folder: $sam2Reuse"
 }
@@ -159,6 +170,10 @@ if (-not $GuiOnly) {
 }
 
 $checkpoint3 = $ExistingSam3Checkpoint
+if (-not $checkpoint3 -and $previousConfig -and $previousConfig.sam3_checkpoint -and
+    (Test-Path -LiteralPath $previousConfig.sam3_checkpoint -PathType Leaf)) {
+    $checkpoint3 = Existing-Checkpoint @([string]$previousConfig.sam3_checkpoint)
+}
 if ($checkpoint3 -and -not (Test-Path -LiteralPath $checkpoint3 -PathType Leaf)) {
     throw "-ExistingSam3Checkpoint points to a missing file: $checkpoint3"
 }
@@ -217,9 +232,9 @@ if ($WithSAM3) {
 $confdir = Join-Path $root '.local'
 New-Item -ItemType Directory -Force -Path $confdir | Out-Null
 $effectiveSam2Folder = $sam2Folder
-if ($sam2Reuse -and (Test-Path -LiteralPath $sam2Reuse)) {
-    $someLocal = @(Get-ChildItem -Path $sam2Folder -Filter '*.pt' -ErrorAction SilentlyContinue).Count
-    if ($someLocal -eq 0) { $effectiveSam2Folder = $sam2Reuse }
+# The backend searches both the local folder and this configured external folder.
+if ($sam2Reuse -and (Test-Path -LiteralPath $sam2Reuse -PathType Container)) {
+    $effectiveSam2Folder = $sam2Reuse
 }
 $config = @{
     gui_env = $GuiEnv
@@ -232,8 +247,7 @@ $config = @{
 $config | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $confdir 'config.json') -Encoding UTF8
 Write-Host ''
 Write-Host 'Running local tests and diagnostics...' -ForegroundColor Cyan
-Run-InEnv $GuiEnv @('python','-m','unittest','discover','-s','tests','-p','test_core.py','-v') 'Mask and annotation tests'
-Run-InEnv $GuiEnv @('python','-m','unittest','discover','-s','tests','-p','test_hardware.py','-v') 'Hardware selection tests'
+Run-InEnv $GuiEnv @('python','-m','unittest','discover','-s','tests','-v') 'Mask, ROI, boundary and hardware tests'
 Run-InEnv $GuiEnv @('python',(Join-Path $root 'check_setup.py')) 'Diagnostic check'
 Write-Host ''
 Write-Host '=== SETUP COMPLETE ===' -ForegroundColor Green

@@ -4,7 +4,7 @@
 
 Segment Studio is a Windows desktop application for manually editing binary masks and previewing AI-generated segmentation candidates. The current annotation target is **flames directly visible in RGB wildfire photographs**. Smoke, vegetation and flames fully hidden by smoke are background.
 
-**Current capabilities:** SAM2.1 positive/negative click prompts; optional SAM3 text prompts; brush and eraser; polygon edits; contour-vertex adjustment; candidate preview/merge; draft and approved masks; optional paired infrared image preview. **RGB–IR registration and IR segmentation are not supported.**
+**Current capabilities:** Segment / Edit / View workspace; SAM2.1 positive/negative clicks and native box prompts; optional SAM3 text prompts; rectangular ROI inference with context; cumulative candidate merging; brush and eraser; polygon creation and vertex editing; undo; draft and approved masks; optional paired infrared image preview. **RGB–IR registration and IR segmentation are not supported.**
 
 This is an independent research prototype, not an official Meta or Hugging Face product. No research images, pretrained checkpoints or authentication tokens are included.
 
@@ -64,7 +64,7 @@ There are **two separate Conda environments**, with different PyTorch dependenci
 
 | Environment | What it contains | When installed |
 | --- | --- | --- |
-| **segment_studio** | Python 3.12, application GUI, SAM2.1 and PyTorch **2.9.1** | Always |
+| **segment_studio** | Python 3.12, application GUI; SAM2.1 and PyTorch **2.9.1** except with `-GuiOnly` | Always |
 | **segment_studio_sam3** | Python 3.12, SAM3, PyTorch **2.10.0**, Triton and supporting libraries | Only with the SAM3 option |
 
 **You always launch the GUI from segment_studio.** When you choose SAM3, the application starts its worker using segment_studio_sam3 automatically. Do not merge these environments.
@@ -155,24 +155,39 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\RUN_CHECKS_WINDOWS.ps1
 
 ## How to annotate
 
-1. Click **Open RGB folder** and choose a folder with the photographs you want to annotate.
-2. Select a SAM2.1 model (start with **SAM2.1 Small**). Choose **SAM positive** to click visible flame pixels and **SAM negative** to identify background/smoke.
-3. Click **Run candidate**. The green prediction is only a **preview**: it does not alter your existing mask until applied.
-4. Select **Apply as** and click **Apply candidate**:
+The application is organized into **Segment** (models, prompts, ROI, candidates), **Edit** (manual tools, boundary editing and undo), and **View** (RGB/IR, overlays and zoom). Open an RGB folder using the top toolbar. Save draft and Approve + save remain available in the sidebar.
 
-   | Mode | Effect |
-   | --- | --- |
-   | **Replace** | Replace the current mask with the prediction |
-   | **Add (union)** | Add predicted pixels to the current mask |
-   | **Subtract** | Remove predicted pixels from the current mask |
-   | **Intersect** | Retain only pixels common to both masks |
+1. Select a model under Segment. Use `SAM2.1 small` as a starting point or `SAM3 text` with `flames`. For SAM2 full-image inference, choose SAM positive and click visible flames; use SAM negative to mark confusing background.
+2. Choose Full image and Run candidate. Green is a temporary prediction; the working mask uses the selected overlay colour (purple by default). Review before accepting.
+3. Select **Add (union)** and Apply candidate. For missed flames, switch to ROI crop, draw a rectangle and Run candidate. If the previous prediction was not applied, answer Yes to keep/apply it before the next inference. Repeat on additional areas.
+4. Use Edit for brush/eraser, polygon add/erase, or Select / edit boundary. Move vertices by dragging, Add near an edge, Remove on a vertex. Undo vertex, Commit boundary or Cancel edit. Ctrl+Z undoes vertex changes while editing, otherwise mask changes.
+5. Save draft or Approve + save after inspection. If a green candidate is pending, Yes in the dialog applies it before saving; No cancels. To intentionally omit a prediction, discard it first.
 
-5. Correct the result with **Paint fire**, **Erase**, **Polygon add/erase**, or **Edit boundary**. Shift-click near a boundary to insert a new vertex. For narrow flame tips, a zoomed-in brush can preserve more detail than simplified polygon editing.
-6. Select **Save draft** while revising or **Approve + save** after reviewing the result.
+### Inference modes and models
 
-For SAM3, select **SAM3 text**, enter a prompt such as **flames**, and choose **Run candidate**. SAM3 runs in its separate environment; each request may be slower because the model is loaded by a worker process.
+| Model | Full image | ROI crop | SAM2 box prompt | Execution |
+| --- | --- | --- | --- | --- |
+| SAM2.1 Tiny | Positive/negative clicks | Rectangle + optional clicks | Yes | CPU / CUDA |
+| SAM2.1 Small | Positive/negative clicks | Rectangle + optional clicks | Yes | CPU / CUDA |
+| SAM2.1 Base+ | Positive/negative clicks | Rectangle + optional clicks | Yes | CPU / CUDA |
+| SAM2.1 Large | Positive/negative clicks | Rectangle + optional clicks | Yes | CPU / CUDA |
+| Original SAM3 text | Text | Text | No (not exposed) | Separate CUDA worker |
+| Colour demo (not AI) | RGB heuristic | RGB heuristic | No | CPU |
 
-**Mouse/keyboard:** wheel = zoom; right-drag = pan; Ctrl+Z = undo; Ctrl+S = save draft; Esc = cancel an unfinished shape. See [Annotation guide](ANNOTATION_GUIDE.md) for additional controls.
+Tiny is the lightest; Small is a practical starting point; Base+ and Large have higher resource demands. Performance on visible wildfire flames is not guaranteed and must be evaluated on representative imagery. SAM2 uses pretrained promptable masks (not a trained fire classifier). SAM3 identifies regions matching text and merges accepted instances at the selected score threshold. The colour demo is a simple RGB heuristic, not a learned model, and may select non-flame objects. Neither SAM backend trains or fine-tunes a model in this GUI.
+
+**ROI crop:** draw a rectangle around a missed flame. Default context is 10% per side; 0–50% expands the inference crop without allowing edits beyond the original rectangle. SAM2 crop mode uses a local box with optional points; SAM3 uses its text prompt on the crop. **SAM2 box prompt:** encodes the full image and prompts with the rectangle; optionally add clicks. ROI masks are restored in original RGB pixel coordinates. Cropping may improve small-object detail, but fixed model input sizes mean it does not guarantee faster inference or less GPU memory.
+
+| Apply as | Effect |
+| --- | --- |
+| Add (union) | Add candidate pixels; preferred for cumulative refinement |
+| Replace | Replace pixels in the candidate's inference area |
+| Subtract | Remove candidate pixels from the working mask |
+| Intersect | Keep only common pixels in the candidate's inference area |
+
+All four operations preserve pixels outside a cropped/native-box candidate's captured ROI even if settings change before Apply. Empty Replace/Intersect requires explicit confirmation. Changing model, scope or rectangle keeps the pending candidate visible. Starting another inference asks whether to apply or discard it; Cancel retains it without running.
+
+See the [Annotation guide](ANNOTATION_GUIDE.md) for detailed workflows and keyboard shortcuts, and [Model guide](models/README.md) for setup and model references.
 
 ## Where files are saved
 
@@ -248,6 +263,10 @@ Other parameters include **-TorchBackend cu126**, **-TorchBackend cu128**, **-Gu
 ~~~text
 segment-studio/
 ├── segment_studio.py                # GUI
+├── roi_utils.py                     # inference scopes and mask placement
+├── mask_utils.py                    # masks and local boundary correction
+├── sam_backends.py                  # model discovery and inference
+├── sam3_worker.py                   # isolated SAM3 process
 ├── SETUP_WINDOWS.ps1                # installer
 ├── LAUNCH_WINDOWS.ps1               # launcher
 ├── models/
@@ -262,6 +281,10 @@ segment-studio/
 ~~~
 
 **Conda environments are installed within your Conda installation**, not inside this repository folder. The model directories, cloned external code, and generated local config are not committed to Git.
+
+### Updating a working installation
+
+For a Git clone, close the GUI, check `git status`, then run `git pull --ff-only origin main`. For a ZIP installation, copy the new source and documentation into the existing project folder (or use a fresh extraction and explicitly reuse checkpoints). Back up saved masks and `.local/config.json` first. Keep `models/`, `external/`, `.local/` and the existing Conda environments. There are no new GUI dependencies for this update; run `RUN_CHECKS_WINDOWS.ps1` and launch normally. Do not reinstall PyTorch merely to receive the new interface.
 
 ### Updating an installation after a setup error
 
@@ -291,7 +314,9 @@ are reused. See [Troubleshooting](TROUBLESHOOTING.md).
 | [Licensing considerations](LICENSING.md) | Publication and redistribution considerations |
 | [models/README.md](models/README.md) | Local model layout |
 | [tests/](tests/) | Regression and hardware-selection tests |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Architecture, checks and release workflow |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
 
-**Tested:** Python syntax, core mask tests, hardware-selection tests and a GUI smoke test using a synthetic image. **Not established:** reliable fresh installation on every Windows/GPU combination, or universal SAM3 inference on low-memory hardware.
+**Validation:** 30 CPU unit tests and four desktop GUI smoke/regression scripts passed on the release port with synthetic images in Linux/Xvfb. Model API calls in ROI tests are mocked; RGB filter inference is real. The internal prototype has been user-tested with SAM3 on Windows, but a clean Windows installation and live SAM2/SAM3 inference on this distributable revision still require validation. Run `RUN_CHECKS_WINDOWS.ps1 -WithGUI` from a desktop PowerShell session to exercise the GUI tests.
 
 No open-source license has yet been chosen for Segment Studio. Do not assume this repository is licensed for public redistribution. Consult the relevant rights holder(s) and [Licensing considerations](LICENSING.md) before publishing it. Official [SAM2](https://github.com/facebookresearch/sam2) and [SAM3](https://github.com/facebookresearch/sam3) source/checkpoints are installed separately and have their own terms.

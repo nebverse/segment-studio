@@ -77,13 +77,13 @@ Modify and test the code locally, then:
 
 ```powershell
 git status
-git add segment_studio.py mask_utils.py sam_backends.py
+git add segment_studio.py mask_utils.py sam_backends.py roi_utils.py tests README.md ANNOTATION_GUIDE.md TROUBLESHOOTING.md
 # Or git add . after verifying nothing private is staged.
 git commit -m "Improve annotation editing"
 git push
 ```
 
-Collaborators can update source code using `git pull`. Their downloaded models
+Prefer a feature branch and pull request for changes to a working installation. See [development checks](DEVELOPMENT.md). Collaborators can update source code using `git pull --ff-only origin main` after review and merge. Their downloaded models
 and `.local/config.json` are ignored and should remain in place. Avoid edits
 inside the ignored `external/` clones unless you intend to maintain a separate
 upstream fork; such edits are not part of this repository.

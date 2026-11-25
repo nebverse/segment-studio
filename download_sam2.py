@@ -90,7 +90,7 @@ def download_model(name: str, folder: Path, reuse: Path | None = None,
             f"Both official routes failed; curl exit {result.returncode}. "
             "If Windows reports CRYPT_E_NO_REVOCATION_CHECK, contact IT about "
             "certificate revocation endpoints or use an approved network. "
-            "With institutional approval, -AllowOfflineRevocation enables curl's "
+            "With institutional approval, the manual --allow-offline-revocation option enables curl's "
             "limited --ssl-revoke-best-effort behavior. Never use --insecure.")
     if not verified(partial, digest):
         raise RuntimeError(f"Checkpoint failed official SHA256 verification: {partial}")

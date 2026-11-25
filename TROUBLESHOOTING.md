@@ -208,3 +208,23 @@ overlay previews as label masks.
 IR pairing is for side-by-side visual inspection, not registration or label
 transfer. A matching filename or CSV pair does not guarantee optical alignment.
 For now, edits/exports are restricted to the RGB coordinate system.
+
+## Full-image prediction disappears when refining small flames
+
+Update to the modern ROI workspace. Green predictions are temporary; use **Apply candidate** with Add (union). The current version keeps the pending preview when switching model, scope or ROI, and asks before replacing it with a new inference. Yes applies the previous prediction. If the save dialog appears, Yes includes the pending candidate; No cancels. Do not discard a useful candidate. Ensure Show candidate preview is enabled under View.
+
+## ROI does not run or masks appear outside the rectangle
+
+Choose ROI crop and draw at least an 8 × 8 pixel rectangle in RGB view. The padded context is inference-only; only the original rectangle is merged. Native SAM2 box mode is available only for SAM2.1. Full-image SAM2 requires a positive point. Existing applied masks outside an ROI are intentionally preserved. Clear ROI returns to full-image inference. For missed tiny objects, try tighter cropping, a different context, additional SAM2 clicks or manual correction.
+
+## Editing a boundary
+
+Select a connected working-mask region in Edit, then choose Move, Add or Remove. Green candidates must first be applied. Commit before changing tools; Cancel edit abandons the temporary polygon. Three vertices must remain. Use brush/eraser to correct holes and fine detail.
+
+## Updating the GUI only
+
+For an existing working install, pull or copy source updates, retain the existing models, environments, external clones and local configuration, and run `RUN_CHECKS_WINDOWS.ps1`. Add `-WithGUI` to exercise desktop regression tests on an interactive desktop. The GUI update requires no additional packages. Only rerun setup to repair missing dependencies/models or install another model.
+
+## Reusing checkpoints from multiple folders
+
+The backend searches the explicit `SEGMENT_STUDIO_SAM2_MODELS` override first, then repository-local `models/sam2.1`, then the configured external folder. The installer retains an existing valid configured external path on retry and validates requested SAM2.1 files by SHA-256. This avoids dropping the external path when only some models needed downloading. SAM3 remains separately configured.

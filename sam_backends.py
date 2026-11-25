@@ -38,8 +38,8 @@ def _sam2_locations() -> list[Path]:
     config = _local_config()
     candidates = [
         os.environ.get('SEGMENT_STUDIO_SAM2_MODELS'),
-        config.get('sam2_models'),
         ROOT / 'models' / 'sam2.1',
+        config.get('sam2_models'),
     ]
     return [Path(path) for path in candidates if path]
 
@@ -113,7 +113,7 @@ class Sam2Local:
         except ImportError:
             pass
 
-    def predict(self, variant: str, image: Image.Image, points: list[tuple[int, int, int]], image_key: str) -> Image.Image:
+    def predict(self, variant: str, image: Image.Image, points: list[tuple[int, int, int]], image_key: str, box=None) -> Image.Image:
         import torch
         from sam2.build_sam import build_sam2
         from sam2.sam2_image_predictor import SAM2ImagePredictor
@@ -134,9 +134,14 @@ class Sam2Local:
             if self.image_key != image_key:
                 self.predictor.set_image(np.asarray(image))
                 self.image_key = image_key
-            coords = np.asarray([(x, y) for x, y, _ in points], dtype=np.float32)
-            labels = np.asarray([cls for _, _, cls in points], dtype=np.int32)
-            masks, scores, _ = self.predictor.predict(point_coords=coords, point_labels=labels, multimask_output=True)
+            coords = np.asarray([(x, y) for x, y, _ in points], dtype=np.float32) if points else None
+            labels = np.asarray([cls for _, _, cls in points], dtype=np.int32) if points else None
+            kwargs = dict(point_coords=coords, point_labels=labels, multimask_output=True)
+            if box is not None:
+                kwargs['box'] = np.asarray(box, dtype=np.float32)
+                # A box is less ambiguous than a single click; use the single-mask decoder.
+                kwargs['multimask_output'] = False
+            masks, scores, _ = self.predictor.predict(**kwargs)
         winning = np.asarray(masks[int(np.argmax(scores))], dtype=np.uint8) * 255
         return Image.fromarray(winning, 'L')
 
